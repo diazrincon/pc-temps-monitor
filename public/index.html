@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AeroPulse | PC Telemetry & Temperature Monitor</title>
+  <meta name="description" content="Real-time PC hardware temperature, fan speeds, and telemetry monitor with persistent timeline charts.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <!-- Chart.js and date adapter for smooth time-series rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app-background">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+  </div>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo-group">
+          <div class="logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              <circle cx="12" cy="12" r="9"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="logo-title">AeroPulse <span class="badge-v">PRO</span></h1>
+            <p class="logo-subtitle">Real-time Telemetry & Thermal Analytics</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <!-- Live Connection Status Badge -->
+        <div id="connection-badge" class="connection-badge offline">
+          <span class="status-pulse"></span>
+          <span id="connection-status-text">INITIALIZING...</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="hardware-specs-chip">
+          <span class="spec-label">GPU:</span>
+          <span class="spec-value" id="header-gpu-name">RTX 3060</span>
+          <span class="spec-divider">|</span>
+          <span class="spec-label">COOLER:</span>
+          <span class="spec-value">Pure Rock Pro 3</span>
+        </div>
+        <div class="clock-display" id="clock-display">--:--:--</div>
+      </div>
+    </header>
+
+    <!-- Alert Banner (Dynamic) -->
+    <div id="alert-banner" class="alert-banner hidden">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-content">
+        <div class="alert-title" id="alert-title">Thermal Caution</div>
+        <div class="alert-desc" id="alert-desc">Hardware temperatures exceeding standard operation thresholds.</div>
+      </div>
+    </div>
+
+    <!-- Quick Stats Cards Grid -->
+    <main class="dashboard-grid">
+      <!-- CPU Temperature Card -->
+      <section class="card stat-card cpu-card" id="card-cpu">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-icon cpu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
+            </span>
+            <div>
+              <h2>CPU Package</h2>
+              <span class="card-sub" id="cpu-name-sub">Intel Core Processor</span>
+            </div>
+          </div>
+          <div class="metric-pill" id="cpu-status-pill">NORMAL</div>
+        </div>
+
+        <div class="metric-main">
+          <div class="metric-value-wrap">
+            <span class="metric-value" id="val-cpu-temp">--</span>
+            <span class="metric-unit">°C</span>
+          </div>
+          <div class="radial-ring-wrap">
+            <svg class="radial-ring" viewBox="0 0 80 80">
+              <circle class="ring-bg" cx="40" cy="40" r="34" />
+              <circle class="ring-bar" id="cpu-ring-bar" cx="40" cy="40" r="34" />
+            </svg>
+            <div class="ring-center-text" id="val-cpu-load">--%</div>
+          </div>
+        </div>
+
+        <div class="card-footer-stats">
+          <div class="sub-stat">
+            <span class="sub-label">Max Core</span>
+            <span class="sub-val" id="val-cpu-max-core">-- °C</span>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-label">CPU Cooler</span>
+            <span class="sub-val" id="val-cpu-fan-rpm">-- RPM</span>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-label">Package Power</span>
+            <span class="sub-val" id="val-cpu-power">-- W</span>
+          </div>
+        </div>
+
+        <div class="card-threshold-bar">
+          <div class="threshold-marker t-warm" style="left: 75%;" title="Warm: 75°C"></div>
+          <div class="threshold-marker t-hot" style="left: 85%;" title="Hot: 85°C"></div>
+          <div class="threshold-fill" id="cpu-temp-fill" style="width: 0%;"></div>
+        </div>
+      </section>
+
+      <!-- GPU Core Card -->
+      <section class="card stat-card gpu-card" id="card-gpu-core">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-icon gpu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 19h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z"/><path d="M10 5v4M14 5v4M10 15v4M14 15v4"/><circle cx="12" cy="12" r="2.5"/></svg>
+            </span>
+            <div>
+              <h2>GPU Core</h2>
+              <span class="card-sub" id="gpu-name-sub">NVIDIA GeForce RTX 3060</span>
+            </div>
+          </div>
+          <div class="metric-pill" id="gpu-core-status-pill">NORMAL</div>
+        </div>
+
+        <div class="metric-main">
+          <div class="metric-value-wrap">
+            <span class="metric-value" id="val-gpu-core-temp">--</span>
+            <span class="metric-unit">°C</span>
+          </div>
+          <div class="radial-ring-wrap">
+            <svg class="radial-ring" viewBox="0 0 80 80">
+              <circle class="ring-bg" cx="40" cy="40" r="34" />
+              <circle class="ring-bar ring-gpu" id="gpu-ring-bar" cx="40" cy="40" r="34" />
+            </svg>
+            <div class="ring-center-text" id="val-gpu-load">--%</div>
+          </div>
+        </div>
+
+        <div class="card-footer-stats">
+          <div class="sub-stat">
+            <span class="sub-label">Dual Fans</span>
+            <span class="sub-val" id="val-gpu-fans-rpm">-- RPM</span>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-label">Fan Duty</span>
+            <span class="sub-val" id="val-gpu-fan-pct">-- %</span>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-label">Board Power</span>
+            <span class="sub-val" id="val-gpu-power">-- W</span>
+          </div>
+        </div>
+
+        <div class="card-threshold-bar">
+          <div class="threshold-marker t-warm" style="left: 76%;" title="Warm: 76°C"></div>
+          <div class="threshold-marker t-hot" style="left: 83%;" title="Throttle Alert: 83°C"></div>
+          <div class="threshold-fill fill-gpu" id="gpu-temp-fill" style="width: 0%;"></div>
+        </div>
+      </section>
+
+      <!-- GPU Hotspot Card -->
+      <section class="card stat-card hotspot-card" id="card-gpu-hotspot">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-icon hotspot-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+            </span>
+            <div>
+              <h2>GPU Hot Spot</h2>
+              <span class="card-sub">Peak Junction Telemetry</span>
+            </div>
+          </div>
+          <div class="metric-pill" id="gpu-hotspot-status-pill">NORMAL</div>
+        </div>
+
+        <div class="metric-main">
+          <div class="metric-value-wrap">
+            <span class="metric-value" id="val-gpu-hotspot-temp">--</span>
+            <span class="metric-unit">°C</span>
+          </div>
+          <div class="delta-stat-wrap">
+            <span class="delta-label">Delta vs Core</span>
+            <span class="delta-val" id="val-hotspot-delta">+-- °C</span>
+          </div>
+        </div>
+
+        <div class="card-footer-stats">
+          <div class="sub-stat">
+            <span class="sub-label">VRAM Load</span>
+            <span class="sub-val" id="val-gpu-mem-load">-- %</span>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-label">Threshold</span>
+            <span class="sub-val">92.0 °C</span>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-label">Status</span>
+            <span class="sub-val text-emerald" id="val-hotspot-health">Nominal</span>
+          </div>
+        </div>
+
+        <div class="card-threshold-bar">
+          <div class="threshold-marker t-warm" style="left: 88%;" title="Caution: 88°C"></div>
+          <div class="threshold-marker t-hot" style="left: 92%;" title="Hotspot Alert: 92°C"></div>
+          <div class="threshold-fill fill-hotspot" id="gpu-hotspot-fill" style="width: 0%;"></div>
+        </div>
+      </section>
+
+      <!-- Case Fans & Airflow Card -->
+      <section class="card stat-card fans-card" id="card-fans">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-icon fans-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12c0-3 2.5-5 5-5 2.5 0 3 2.5 1 4.5l-6 .5z"/><path d="M12 12c-3 0-5-2.5-5-5 0-2.5 2.5-3 4.5-1l.5 6z"/><path d="M12 12c0 3-2.5 5-5 5-2.5 0-3-2.5-1-4.5l6-.5z"/><path d="M12 12c3 0 5 2.5 5 5 0 2.5-2.5 3-4.5 1l-.5-6z"/><circle cx="12" cy="12" r="2"/></svg>
+            </span>
+            <div>
+              <h2>Airflow & Fans</h2>
+              <span class="card-sub">Chassis Pressure Balance</span>
+            </div>
+          </div>
+          <div class="metric-pill pill-cyan">POSITIVE</div>
+        </div>
+
+        <div class="fan-gauges-row">
+          <div class="fan-item">
+            <div class="fan-icon-spin" id="fan-intake-spin">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <div class="fan-info">
+              <span class="fan-label">Intake 120mm</span>
+              <span class="fan-rpm" id="val-fan-intake">-- RPM</span>
+            </div>
+          </div>
+
+          <div class="fan-item">
+            <div class="fan-icon-spin" id="fan-exhaust-spin">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <div class="fan-info">
+              <span class="fan-label">Exhaust 120mm</span>
+              <span class="fan-rpm" id="val-fan-exhaust">-- RPM</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer-stats">
+          <div class="sub-stat">
+            <span class="sub-label">Motherboard</span>
+            <span class="sub-val" id="val-mobo-temp">-- °C</span>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-label">GPU Fan 1</span>
+            <span class="sub-val" id="val-gpu-fan1-rpm">-- RPM</span>
+          </div>
+          <div class="sub-stat">
+            <span class="sub-label">GPU Fan 2</span>
+            <span class="sub-val" id="val-gpu-fan2-rpm">-- RPM</span>
+          </div>
+        </div>
+
+        <div class="airflow-status-track">
+          <div class="airflow-indicator" id="airflow-indicator" style="left: 48%;"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Interactive Historical Charts Section -->
+    <section class="charts-section card">
+      <div class="charts-toolbar">
+        <div class="toolbar-left">
+          <h2 class="section-title">Telemetry Timeline</h2>
+          <span class="section-subtitle">Real-time time-series hardware analytics</span>
+        </div>
+
+        <div class="range-selector" id="range-selector">
+          <button class="range-btn" data-range="15m">15M</button>
+          <button class="range-btn active" data-range="1h">1H</button>
+          <button class="range-btn" data-range="6h">6H</button>
+          <button class="range-btn" data-range="24h">24H</button>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <!-- Temperatures Chart -->
+        <div class="chart-wrapper">
+          <div class="chart-header">
+            <h3>Thermal Curves (°C)</h3>
+            <div class="chart-legend-custom">
+              <span class="legend-item leg-cpu"><span class="legend-dot"></span> CPU Pkg</span>
+              <span class="legend-item leg-gpu"><span class="legend-dot"></span> GPU Core</span>
+              <span class="legend-item leg-hotspot"><span class="legend-dot"></span> GPU Hotspot</span>
+            </div>
+          </div>
+          <div class="canvas-container">
+            <canvas id="chart-temps"></canvas>
+          </div>
+        </div>
+
+        <!-- Fan Speeds & Loads Chart -->
+        <div class="chart-wrapper">
+          <div class="chart-header">
+            <h3>Fans & Acoustic Speeds (RPM)</h3>
+            <div class="chart-legend-custom">
+              <span class="legend-item leg-cpufan"><span class="legend-dot"></span> CPU Fan</span>
+              <span class="legend-item leg-gpufan"><span class="legend-dot"></span> GPU Fan</span>
+              <span class="legend-item leg-intake"><span class="legend-dot"></span> Intake</span>
+              <span class="legend-item leg-exhaust"><span class="legend-dot"></span> Exhaust</span>
+            </div>
+          </div>
+          <div class="canvas-container">
+            <canvas id="chart-fans"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-left">
+        <span>AeroPulse Monitor &bull; Running on Node.js 24 + SQLite WAL</span>
+      </div>
+      <div class="footer-right">
+        <span class="refresh-indicator">
+          <span class="refresh-bar" id="refresh-progress-bar"></span>
+        </span>
+        <span id="last-updated-text">Updated: just now</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/js/charts.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

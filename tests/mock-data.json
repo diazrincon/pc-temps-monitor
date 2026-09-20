@@ -1,0 +1,110 @@
+{
+  "id": 0,
+  "text": "Sensor",
+  "Children": [
+    {
+      "id": 1,
+      "text": "DESKTOP-MONITOR",
+      "Children": [
+        {
+          "id": 2,
+          "text": "Intel Core i5-12600K",
+          "Children": [
+            {
+              "id": 3,
+              "text": "Temperatures",
+              "Children": [
+                { "id": 4, "text": "CPU Package", "Value": "54.0 °C", "Min": "42.0 °C", "Max": "76.0 °C" },
+                { "id": 5, "text": "Core Max", "Value": "52.0 °C", "Min": "40.0 °C", "Max": "74.0 °C" },
+                { "id": 6, "text": "Core #1", "Value": "50.0 °C", "Min": "39.0 °C", "Max": "71.0 °C" },
+                { "id": 7, "text": "Core #2", "Value": "52.0 °C", "Min": "41.0 °C", "Max": "74.0 °C" },
+                { "id": 8, "text": "Core #3", "Value": "49.0 °C", "Min": "38.0 °C", "Max": "70.0 °C" },
+                { "id": 9, "text": "Core #4", "Value": "51.0 °C", "Min": "40.0 °C", "Max": "72.0 °C" }
+              ]
+            },
+            {
+              "id": 10,
+              "text": "Load",
+              "Children": [
+                { "id": 11, "text": "CPU Total", "Value": "24.6 %", "Min": "2.1 %", "Max": "98.5 %" }
+              ]
+            },
+            {
+              "id": 12,
+              "text": "Powers",
+              "Children": [
+                { "id": 13, "text": "CPU Package", "Value": "48.5 W", "Min": "14.2 W", "Max": "125.0 W" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 20,
+          "text": "NVIDIA GeForce RTX 3060",
+          "Children": [
+            {
+              "id": 21,
+              "text": "Temperatures",
+              "Children": [
+                { "id": 22, "text": "GPU Core", "Value": "51.5 °C", "Min": "44.0 °C", "Max": "72.0 °C" },
+                { "id": 23, "text": "GPU Hot Spot", "Value": "60.2 °C", "Min": "51.0 °C", "Max": "81.5 °C" }
+              ]
+            },
+            {
+              "id": 24,
+              "text": "Fans",
+              "Children": [
+                { "id": 25, "text": "GPU Fan 1", "Value": "1150 RPM", "Min": "0 RPM", "Max": "1950 RPM" },
+                { "id": 26, "text": "GPU Fan 2", "Value": "1140 RPM", "Min": "0 RPM", "Max": "1950 RPM" }
+              ]
+            },
+            {
+              "id": 27,
+              "text": "Controls",
+              "Children": [
+                { "id": 28, "text": "GPU Fan", "Value": "40.0 %", "Min": "0.0 %", "Max": "70.0 %" }
+              ]
+            },
+            {
+              "id": 29,
+              "text": "Load",
+              "Children": [
+                { "id": 30, "text": "GPU Core", "Value": "38.2 %", "Min": "0.0 %", "Max": "99.0 %" },
+                { "id": 31, "text": "GPU Memory", "Value": "28.5 %", "Min": "10.0 %", "Max": "65.0 %" }
+              ]
+            },
+            {
+              "id": 32,
+              "text": "Powers",
+              "Children": [
+                { "id": 33, "text": "GPU Power", "Value": "112.4 W", "Min": "22.0 W", "Max": "170.0 W" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 40,
+          "text": "Nuvoton NCT6687D",
+          "Children": [
+            {
+              "id": 41,
+              "text": "Fans",
+              "Children": [
+                { "id": 42, "text": "CPU Fan", "Value": "1050 RPM", "Min": "600 RPM", "Max": "1800 RPM" },
+                { "id": 43, "text": "Fan #1", "Value": "880 RPM", "Min": "500 RPM", "Max": "1400 RPM" },
+                { "id": 44, "text": "Fan #2", "Value": "910 RPM", "Min": "500 RPM", "Max": "1400 RPM" }
+              ]
+            },
+            {
+              "id": 45,
+              "text": "Temperatures",
+              "Children": [
+                { "id": 46, "text": "System", "Value": "34.0 °C", "Min": "30.0 °C", "Max": "40.0 °C" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

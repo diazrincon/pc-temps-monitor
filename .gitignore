@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Runtime SQLite database and logs
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.log
+
+# Large binaries and portable monitor
+LibreHardwareMonitor*/
+*.zip
+*.tar.gz
+*.exe
+*.dll
+*.pdb
+
+# OS & Environment
+.DS_Store
+Thumbs.db
+[Dd]esktop.ini
+.env
+.env.local
+
+# IDE & Editor metadata
+.vscode/
+.idea/
