@@ -150,6 +150,20 @@ function initReportController() {
       URL.revokeObjectURL(url);
     });
   }
+
+  // Ensure initial visibility: check if a session is currently active
+  fetch('/api/sessions/active')
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.activeSession) {
+        updateRecordingUI(data.activeSession);
+      } else {
+        stopRecordingUI();
+      }
+    })
+    .catch(() => {
+      stopRecordingUI();
+    });
 }
 
 // Update UI when recording is active
