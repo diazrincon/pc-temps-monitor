@@ -1,5 +1,6 @@
 /**
  * Fastify Web Server for PC Temperatures Monitoring Dashboard
+ * Includes Thermal Study / Benchmark Session Management & Report APIs
  */
 
 const path = require('node:path');
@@ -8,7 +9,13 @@ const Fastify = require('fastify');
 const fastifyStatic = require('@fastify/static');
 const fastifyCors = require('@fastify/cors');
 const { TelemetryCollector } = require('./collector.js');
-const { getHistory } = require('./db.js');
+const {
+  getHistory,
+  getBenchmarkSession,
+  listBenchmarkSessions,
+  deleteBenchmarkSession
+} = require('./db.js');
+const { generateLlmPrompt } = require('./benchmark.js');
 
 // Load configuration
 const configPath = path.join(__dirname, '..', 'config.json');
@@ -38,7 +45,8 @@ app.get('/api/current', async (request, reply) => {
     telemetry: collector.getCurrent(),
     thresholds: config.thresholds,
     hardwareMeta: config.hardwareMeta,
-    isLive: collector.isLive
+    isLive: collector.isLive,
+    activeSession: collector.getActiveSessionState()
   };
 });
 
@@ -62,7 +70,83 @@ app.get('/api/config', async (request, reply) => {
   };
 });
 
-// Server-Sent Events (SSE) Stream
+// --- BENCHMARK STUDY ROUTES ---
+
+// Start Benchmark Study
+app.post('/api/sessions/start', async (request, reply) => {
+  try {
+    const body = request.body || {};
+    const session = collector.startBenchmarkSession({
+      title: body.title,
+      durationType: body.durationType || 'unlimited'
+    });
+    return { success: true, session };
+  } catch (err) {
+    reply.status(400);
+    return { success: false, error: err.message };
+  }
+});
+
+// Stop Current Benchmark Study
+app.post('/api/sessions/stop', async (request, reply) => {
+  try {
+    const session = collector.stopBenchmarkSession();
+    if (!session) {
+      reply.status(404);
+      return { success: false, error: 'No hay ninguna sesión activa en curso.' };
+    }
+    return { success: true, session };
+  } catch (err) {
+    reply.status(500);
+    return { success: false, error: err.message };
+  }
+});
+
+// Active Session Status
+app.get('/api/sessions/active', async (request, reply) => {
+  return {
+    activeSession: collector.getActiveSessionState()
+  };
+});
+
+// List All Completed Sessions
+app.get('/api/sessions', async (request, reply) => {
+  const sessions = listBenchmarkSessions();
+  return { sessions };
+});
+
+// Get Specific Session with Samples and Summary
+app.get('/api/sessions/:id', async (request, reply) => {
+  const session = getBenchmarkSession(request.params.id);
+  if (!session) {
+    reply.status(404);
+    return { error: 'Sesión no encontrada.' };
+  }
+  return { session };
+});
+
+// Get LLM Prompt for Session
+app.get('/api/sessions/:id/llm', async (request, reply) => {
+  const session = getBenchmarkSession(request.params.id);
+  if (!session || !session.summary) {
+    reply.status(404);
+    return { error: 'Sesión o resumen no disponible.' };
+  }
+  const prompt = generateLlmPrompt(session, session.summary, config.hardwareMeta);
+  return {
+    sessionId: session.id,
+    title: session.title,
+    prompt
+  };
+});
+
+// Delete a Session
+app.delete('/api/sessions/:id', async (request, reply) => {
+  deleteBenchmarkSession(request.params.id);
+  return { success: true };
+});
+
+// --- Server-Sent Events (SSE) Stream ---
 app.get('/api/stream', (request, reply) => {
   reply.raw.setHeader('Content-Type', 'text/event-stream');
   reply.raw.setHeader('Cache-Control', 'no-cache');
@@ -74,15 +158,17 @@ app.get('/api/stream', (request, reply) => {
     telemetry: collector.getCurrent(),
     thresholds: config.thresholds,
     hardwareMeta: config.hardwareMeta,
-    isLive: collector.isLive
+    isLive: collector.isLive,
+    activeSession: collector.getActiveSessionState()
   });
   reply.raw.write(`data: ${initialData}\n\n`);
 
   // Listener on new telemetry samples
-  const onTelemetry = (telemetry) => {
+  const onTelemetry = (data) => {
     try {
       const payload = JSON.stringify({
-        telemetry,
+        telemetry: data.telemetry,
+        activeSession: data.activeSession,
         thresholds: config.thresholds,
         hardwareMeta: config.hardwareMeta,
         isLive: collector.isLive
@@ -93,10 +179,22 @@ app.get('/api/stream', (request, reply) => {
     }
   };
 
+  const onSessionFinished = (completedSession) => {
+    try {
+      const payload = JSON.stringify({
+        event: 'session_completed',
+        session: completedSession
+      });
+      reply.raw.write(`data: ${payload}\n\n`);
+    } catch (err) {}
+  };
+
   collector.on('telemetry', onTelemetry);
+  collector.on('session_finished', onSessionFinished);
 
   request.raw.on('close', () => {
     collector.off('telemetry', onTelemetry);
+    collector.off('session_finished', onSessionFinished);
   });
 });
 

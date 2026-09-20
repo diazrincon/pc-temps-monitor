@@ -104,6 +104,13 @@ function updateTelemetryUI(data) {
     elements.connStatusText.textContent = 'SIMULATED (LHM OFFLINE)';
   }
 
+  // Active Benchmark Study Session State
+  if (data.activeSession && typeof updateRecordingUI === 'function') {
+    updateRecordingUI(data.activeSession);
+  } else if (!data.activeSession && typeof stopRecordingUI === 'function') {
+    stopRecordingUI();
+  }
+
   // --- CPU ---
   if (t.cpu.name && t.cpu.name !== 'Unknown CPU') {
     elements.cpuName.textContent = t.cpu.name;
@@ -276,7 +283,12 @@ function setupEventStream() {
   eventSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      updateTelemetryUI(data);
+      if (data.event === 'session_completed') {
+        if (typeof stopRecordingUI === 'function') stopRecordingUI();
+        if (typeof openReportModal === 'function') openReportModal(data.session);
+      } else {
+        updateTelemetryUI(data);
+      }
     } catch (e) {
       console.error('Error parsing SSE data', e);
     }
@@ -311,6 +323,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   initCharts();
   setupRangeButtons();
   
+  if (typeof initReportController === 'function') {
+    initReportController();
+  }
+
   // Load initial history
   await loadHistory(currentRange);
 

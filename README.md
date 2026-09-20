@@ -2,7 +2,7 @@
 
 > Modern, lightweight, automated PC temperature and fan telemetry monitoring dashboard for Windows, integrating with LibreHardwareMonitor.
 
-![AeroPulse Pro](https://img.shields.io/badge/version-v1.1.0-blue.svg)
+![AeroPulse Pro](https://img.shields.io/badge/version-v1.2.0-blue.svg)
 ![Node.js](https://img.shields.io/badge/node.js-v24+-68a063.svg)
 ![Backend](https://img.shields.io/badge/Fastify-v5-black.svg)
 ![Database](https://img.shields.io/badge/SQLite-WAL-003b57.svg)
@@ -13,6 +13,13 @@
 ## 🌟 Highlights
 
 - **Real-Time Telemetry**: Instant CPU, GPU, and Case fan readings updated every 5 seconds.
+- **🧪 Thermal Study Recorder**:
+  - Record benchmark or gaming sessions over flexible durations (`10 min`, `30 min`, `1 hr`, or `Unlimited`).
+  - Persistent study sessions stored in SQLite with full telemetry time series.
+  - Automatic statistical analysis: Min, Avg, Max, P95 (95th percentile), GPU thermal delta (Hotspot vs Core), and throttling incident counters.
+  - Automated **Thermal Health Grade** (`A+`, `A`, `B`, `C`) evaluating cooling performance.
+  - **PDF Export**: Print-ready A4/Letter formatted report without web navigation chrome.
+  - **LLM Diagnostic Prompt**: One-click prompt generator tailored for ChatGPT, Claude, or Gemini containing exact hardware specs, stats tables, and targeted engineering questions.
 - **Hardware-Specific Mapping**:
   - **CPU**: Intel Core / AMD Ryzen Package & Core Temps, load %, package power (W).
   - **GPU**: NVIDIA RTX 3060 Core & Hot Spot temps, dual-fan RPM, fan %, board power (W), 0dB idle fan detection.
