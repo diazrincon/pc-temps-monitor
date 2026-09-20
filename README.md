@@ -66,12 +66,23 @@ Open your browser at: **[http://localhost:8367](http://localhost:8367)**
 
 ## 🔄 Windows Autostart (Run on Boot)
 
-To run the monitoring service silently on Windows logon:
+To run the monitoring service silently in the background on Windows logon:
+
+### Option A: User Startup Registry (Recommended - No Admin/UAC Required)
 ```powershell
-# Register background scheduled task (auto-prompts UAC elevation if needed)
+# Enable autostart:
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-startup.ps1
+
+# Disable autostart:
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-startup.ps1
+```
+
+### Option B: Windows Task Scheduler (Requires Administrator Rights)
+```powershell
+# Register scheduled task:
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\register-task.ps1
 
-# To unregister:
+# Unregister scheduled task:
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-task.ps1
 ```
 
