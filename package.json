@@ -1,12 +1,12 @@
 {
   "name": "pc-temps-monitor",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Automated PC Temperature and Fan Telemetry Monitoring Dashboard for Windows & LibreHardwareMonitor",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node tests/parser.test.js"
+    "test": "node tests/parser.test.js && node tests/benchmark.test.js"
   },
   "keywords": [
     "temperature",

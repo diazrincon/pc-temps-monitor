@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
-  <!-- Chart.js and date adapter for smooth time-series rendering -->
+  <!-- Chart.js for smooth time-series rendering -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -42,6 +42,29 @@
         <div id="connection-badge" class="connection-badge offline">
           <span class="status-pulse"></span>
           <span id="connection-status-text">INITIALIZING...</span>
+        </div>
+
+        <!-- Benchmark / Thermal Study Actions -->
+        <div class="study-controls">
+          <button id="btn-new-study" class="btn-study-action" title="Iniciar grabación de estudio de rendimiento">
+            <span class="btn-study-dot"></span>
+            <span>Iniciar Estudio</span>
+          </button>
+
+          <!-- Recording Badge (Visible when active) -->
+          <div id="recording-badge" class="recording-badge hidden">
+            <span class="rec-pulse-dot"></span>
+            <span id="rec-title" class="rec-title">Grabando</span>
+            <span id="rec-timer" class="rec-timer">00:00</span>
+          </div>
+
+          <button id="btn-stop-study" class="btn-study-stop hidden" title="Detener estudio y generar reporte">
+            <span>⏹ Finalizar y Reportar</span>
+          </button>
+
+          <button id="btn-history" class="btn-study-history" title="Ver historial de benchmarks anteriores">
+            <span>📋 Historial</span>
+          </button>
         </div>
       </div>
 
@@ -340,7 +363,140 @@
     </footer>
   </div>
 
+  <!-- MODAL: Iniciar Estudio Térmico -->
+  <div id="modal-start-study" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-badge-icon">⚡</span>
+          <h3>Nuevo Estudio Térmico</h3>
+        </div>
+        <button class="modal-btn-close" id="btn-cancel-start">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Graba la telemetría continua de tu CPU, GPU y ventiladores durante una sesión de juego o prueba de estrés para diagnosticar rendimiento térmico y acústica.</p>
+        
+        <div class="form-group">
+          <label for="study-title-input">Nombre de la Sesión / Benchmark:</label>
+          <input type="text" id="study-title-input" class="input-text" placeholder="Ej: Cyberpunk 2077 Ultra, Cinebench R23, Render Blender" />
+        </div>
+
+        <div class="form-group">
+          <label>Duración del Estudio:</label>
+          <div class="duration-pills-row">
+            <button class="duration-pill" data-duration="1m">1 Min (Prueba)</button>
+            <button class="duration-pill selected" data-duration="10m">10 Mins</button>
+            <button class="duration-pill" data-duration="30m">30 Mins</button>
+            <button class="duration-pill" data-duration="1h">1 Hora</button>
+            <button class="duration-pill" data-duration="unlimited">Ilimitado</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-cancel-start-2">Cancelar</button>
+        <button class="btn-primary" id="btn-confirm-start">🔴 Comenzar Grabación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Reporte de Estudio Térmico -->
+  <div id="modal-report" class="modal-overlay">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header no-print">
+        <div class="modal-title-group">
+          <span class="modal-badge-icon">📊</span>
+          <h3 id="rep-title">Reporte de Estudio Térmico</h3>
+        </div>
+        <div class="report-header-actions">
+          <button id="btn-print-pdf" class="btn-report-action" title="Imprimir o Guardar como PDF">📄 Exportar PDF</button>
+          <button id="btn-copy-llm" class="btn-report-action btn-llm" title="Copiar análisis formateado para consultar en un LLM">🤖 Copiar para LLM</button>
+          <button id="btn-download-json" class="btn-report-action btn-json" title="Descargar datos en bruto en JSON">💾 JSON</button>
+          <button class="modal-btn-close" id="btn-close-report">&times;</button>
+        </div>
+      </div>
+
+      <!-- Printable Area for PDF Export -->
+      <div id="report-printable-area" class="report-content">
+        <div class="report-top-meta">
+          <div class="rep-meta-left">
+            <h2 class="print-title" id="rep-print-title">AeroPulse Pro - Thermal Analysis Report</h2>
+            <div class="rep-date-info">
+              <span id="rep-date">--</span> &bull; 
+              <span id="rep-duration">--</span> &bull; 
+              <span id="rep-samples">-- muestras</span>
+            </div>
+            <div class="rep-hardware-tags">
+              <span class="rep-tag">CPU: 11th Gen i5-11400</span>
+              <span class="rep-tag">Cooler: Pure Rock Pro 3</span>
+              <span class="rep-tag">GPU: RTX 3060</span>
+            </div>
+          </div>
+          <div class="rep-meta-right">
+            <div id="rep-grade" class="report-grade-badge badge-emerald">Calificación: A+</div>
+            <div id="rep-grade-desc" class="grade-desc-text">Excelente rendimiento térmico</div>
+          </div>
+        </div>
+
+        <div id="rep-throttle-alert" class="report-alert-warning hidden"></div>
+
+        <!-- KPI Cards Grid -->
+        <div class="report-kpi-grid">
+          <div class="rep-kpi-card">
+            <span class="rep-kpi-label">CPU Package Pico</span>
+            <span class="rep-kpi-val" id="rep-cpu-max">-- °C</span>
+            <span class="rep-kpi-sub" id="rep-cpu-avg">Avg: -- | P95: --</span>
+          </div>
+
+          <div class="rep-kpi-card">
+            <span class="rep-kpi-label">GPU Core Pico</span>
+            <span class="rep-kpi-val" id="rep-gpu-max">-- °C</span>
+            <span class="rep-kpi-sub" id="rep-gpu-avg">Avg: -- | P95: --</span>
+          </div>
+
+          <div class="rep-kpi-card">
+            <span class="rep-kpi-label">GPU Hot Spot Pico</span>
+            <span class="rep-kpi-val" id="rep-hotspot-max">-- °C</span>
+            <span class="rep-kpi-sub" id="rep-hotspot-avg">Delta: +-- | P95: --</span>
+          </div>
+
+          <div class="rep-kpi-card">
+            <span class="rep-kpi-label">Ventilación Promedio</span>
+            <span class="rep-kpi-val" style="font-size: 1.4rem;">Chasis 120mm</span>
+            <span class="rep-kpi-sub" id="rep-fans-summary">Intake: -- | Exhaust: --</span>
+          </div>
+        </div>
+
+        <!-- Session Timeline Chart -->
+        <div class="report-chart-section">
+          <h4 class="report-section-heading">Curva Térmica durante el Estudio</h4>
+          <div class="report-chart-container">
+            <canvas id="chart-study-session"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Historial de Estudios Anteriores -->
+  <div id="modal-history" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-badge-icon">📋</span>
+          <h3>Historial de Estudios Térmicos</h3>
+        </div>
+        <button class="modal-btn-close" id="btn-close-history">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="history-sessions-list" class="history-list">
+          <!-- Loaded dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/charts.js"></script>
+  <script src="/js/report.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>
