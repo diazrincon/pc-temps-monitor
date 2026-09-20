@@ -1,12 +1,22 @@
 /**
  * Collector service: polls LibreHardwareMonitor, parses telemetry,
  * persists to SQLite, and emits events to active dashboard clients.
+ * Supports active benchmark study recording sessions.
  */
 
 const EventEmitter = require('node:events');
 const { parseLhmTree } = require('./parser.js');
 const { getMockTelemetry } = require('./mock.js');
-const { insertMetric, cleanupOldRecords } = require('./db.js');
+const {
+  insertMetric,
+  cleanupOldRecords,
+  createBenchmarkSession,
+  addSessionSample,
+  finishBenchmarkSession,
+  getBenchmarkSession,
+  getSessionSamples
+} = require('./db.js');
+const { summarizeBenchmark } = require('./benchmark.js');
 
 class TelemetryCollector extends EventEmitter {
   constructor(config) {
@@ -17,6 +27,7 @@ class TelemetryCollector extends EventEmitter {
     this.current = null;
     this.isLive = false;
     this.lastSuccessfulPoll = null;
+    this.activeSession = null;
   }
 
   async poll() {
@@ -52,16 +63,133 @@ class TelemetryCollector extends EventEmitter {
       telemetry = getMockTelemetry();
     }
 
-    // Save in database
+    // Save in general metrics database
     try {
       insertMetric(telemetry);
     } catch (dbErr) {
       console.error('[Collector] Error saving metric to SQLite:', dbErr.message);
     }
 
+    // Record sample if there is an active benchmark study session
+    if (this.activeSession) {
+      try {
+        addSessionSample(this.activeSession.id, telemetry);
+        this.activeSession.sampleCount = (this.activeSession.sampleCount || 0) + 1;
+
+        // Check if duration limit reached
+        if (this.activeSession.targetSeconds) {
+          const elapsed = (Date.now() - new Date(this.activeSession.startTime).getTime()) / 1000;
+          if (elapsed >= this.activeSession.targetSeconds) {
+            console.log(`[Collector] Benchmark session target time reached (${elapsed}s). Finishing session.`);
+            this.stopBenchmarkSession();
+          }
+        }
+      } catch (sessionErr) {
+        console.error('[Collector] Error recording session sample:', sessionErr.message);
+      }
+    }
+
     this.current = telemetry;
-    this.emit('telemetry', telemetry);
+    this.emit('telemetry', {
+      telemetry,
+      activeSession: this.getActiveSessionState()
+    });
     return telemetry;
+  }
+
+  // --- BENCHMARK SESSION CONTROLS ---
+
+  startBenchmarkSession({ title, durationType }) {
+    if (this.activeSession) {
+      throw new Error('Ya existe un estudio de benchmark en curso.');
+    }
+
+    let targetSeconds = null;
+    if (durationType === '10m') targetSeconds = 10 * 60;
+    else if (durationType === '30m') targetSeconds = 30 * 60;
+    else if (durationType === '1h') targetSeconds = 60 * 60;
+    else if (durationType === '1m') targetSeconds = 60; // useful for testing
+
+    const id = `study_${Date.now()}`;
+    const startTime = new Date().toISOString();
+    const sessionTitle = title && title.trim() ? title.trim() : `Estudio Térmico #${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+    createBenchmarkSession({
+      id,
+      title: sessionTitle,
+      durationType: durationType || 'unlimited',
+      targetSeconds,
+      startTime
+    });
+
+    this.activeSession = {
+      id,
+      title: sessionTitle,
+      durationType: durationType || 'unlimited',
+      targetSeconds,
+      startTime,
+      sampleCount: 0
+    };
+
+    console.log(`[Collector] Started Benchmark Study '${sessionTitle}' [ID: ${id}, Target: ${durationType}]`);
+    this.emit('session_started', this.activeSession);
+    return this.activeSession;
+  }
+
+  stopBenchmarkSession() {
+    if (!this.activeSession) {
+      return null;
+    }
+
+    const sessionData = getBenchmarkSession(this.activeSession.id);
+    if (!sessionData) {
+      this.activeSession = null;
+      return null;
+    }
+
+    const endTime = new Date().toISOString();
+    sessionData.end_time = endTime;
+
+    // Compute statistical summary
+    const summary = summarizeBenchmark(
+      sessionData,
+      sessionData.samples || [],
+      this.config.hardwareMeta,
+      this.config.thresholds
+    );
+
+    finishBenchmarkSession(
+      this.activeSession.id,
+      endTime,
+      'completed',
+      JSON.stringify(summary)
+    );
+
+    const completedSession = {
+      ...sessionData,
+      end_time: endTime,
+      status: 'completed',
+      summary
+    };
+
+    console.log(`[Collector] Finished Benchmark Study '${completedSession.title}'. Grade: ${summary.grade}`);
+    this.activeSession = null;
+    this.emit('session_finished', completedSession);
+    return completedSession;
+  }
+
+  getActiveSessionState() {
+    if (!this.activeSession) return null;
+    const elapsedSeconds = Math.floor((Date.now() - new Date(this.activeSession.startTime).getTime()) / 1000);
+    return {
+      id: this.activeSession.id,
+      title: this.activeSession.title,
+      durationType: this.activeSession.durationType,
+      targetSeconds: this.activeSession.targetSeconds,
+      startTime: this.activeSession.startTime,
+      sampleCount: this.activeSession.sampleCount || 0,
+      elapsedSeconds
+    };
   }
 
   start() {
