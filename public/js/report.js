@@ -17,6 +17,7 @@ function initReportController() {
 
   const btnConfirmStart = document.getElementById('btn-confirm-start');
   const btnCancelStart = document.getElementById('btn-cancel-start');
+  const btnCancelStart2 = document.getElementById('btn-cancel-start-2');
   const btnCloseReport = document.getElementById('btn-close-report');
   const btnCloseHistory = document.getElementById('btn-close-history');
 
@@ -32,12 +33,34 @@ function initReportController() {
     });
   }
 
-  // Cancel Start Modal
-  if (btnCancelStart) {
-    btnCancelStart.addEventListener('click', () => {
-      modalStart.classList.remove('active');
-    });
-  }
+  // Cancel Start Modal (both X and Cancelar button)
+  [btnCancelStart, btnCancelStart2].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', () => {
+        modalStart.classList.remove('active');
+      });
+    }
+  });
+
+  // Close modals on clicking overlay backdrop
+  [modalStart, modalReport, modalHistory].forEach(modal => {
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('active');
+        }
+      });
+    }
+  });
+
+  // Close modals with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      [modalStart, modalReport, modalHistory].forEach(modal => {
+        if (modal) modal.classList.remove('active');
+      });
+    }
+  });
 
   // Duration Pills selection
   const durationPills = document.querySelectorAll('.duration-pill');
