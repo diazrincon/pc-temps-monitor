@@ -461,8 +461,118 @@
 
           <div class="rep-kpi-card">
             <span class="rep-kpi-label">Ventilación Promedio</span>
-            <span class="rep-kpi-val" style="font-size: 1.4rem;">Chasis 120mm</span>
+            <span class="rep-kpi-val" style="font-size: 1.4rem;" id="rep-fans-global-val">Chasis 120mm</span>
             <span class="rep-kpi-sub" id="rep-fans-summary">Intake: -- | Exhaust: --</span>
+          </div>
+        </div>
+
+        <!-- Fans & Acoustic Speeds (RPM) Section -->
+        <div class="report-fans-section">
+          <div class="report-fans-header">
+            <div class="report-fans-title-group">
+              <span class="report-fans-icon">🌀</span>
+              <h4 class="report-section-heading" style="margin-bottom: 0;">Fans & Acoustic Speeds (RPM)</h4>
+            </div>
+            <div id="rep-airflow-badge" class="report-airflow-pill badge-cyan">
+              <span class="airflow-pill-dot"></span>
+              <span id="rep-airflow-balance-text">Equilibrado</span>
+            </div>
+          </div>
+
+          <div class="report-fans-grid">
+            <!-- CPU Cooler Fan -->
+            <div class="fan-stat-card">
+              <div class="fan-card-header">
+                <div>
+                  <span class="fan-card-name">CPU Cooler Fan</span>
+                  <span class="fan-card-sub">Pure Rock Pro 3 &bull; CPU_FAN</span>
+                </div>
+                <span id="rep-cpu-fan-tag" class="fan-acoustic-tag quiet">SILENCIOSO</span>
+              </div>
+              <div class="fan-card-body">
+                <div class="fan-card-main-val">
+                  <span class="fan-rpm-number" id="rep-cpu-fan-avg">--</span>
+                  <span class="fan-rpm-unit">RPM (Avg)</span>
+                </div>
+                <div class="fan-card-pills">
+                  <span class="fan-mini-pill" id="rep-cpu-fan-min">Min: --</span>
+                  <span class="fan-mini-pill" id="rep-cpu-fan-max">Max: --</span>
+                  <span class="fan-mini-pill" id="rep-cpu-fan-p95">P95: --</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- GPU Dual Fans -->
+            <div class="fan-stat-card">
+              <div class="fan-card-header">
+                <div>
+                  <span class="fan-card-name">GPU Fans</span>
+                  <span class="fan-card-sub">RTX 3060 Ventus &bull; Dual Fan</span>
+                </div>
+                <span id="rep-gpu-fan-tag" class="fan-acoustic-tag zerodb">0dB STOP</span>
+              </div>
+              <div class="fan-card-body">
+                <div class="fan-card-main-val">
+                  <span class="fan-rpm-number" id="rep-gpu-fan-avg">--</span>
+                  <span class="fan-rpm-unit">RPM (Avg)</span>
+                </div>
+                <div class="fan-card-pills">
+                  <span class="fan-mini-pill" id="rep-gpu-fan-min">Min: --</span>
+                  <span class="fan-mini-pill" id="rep-gpu-fan-max">Max: --</span>
+                  <span class="fan-mini-pill" id="rep-gpu-fan-p95">P95: --</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Case Intake Fan -->
+            <div class="fan-stat-card">
+              <div class="fan-card-header">
+                <div>
+                  <span class="fan-card-name">Case Intake (Front)</span>
+                  <span class="fan-card-sub">120mm Intake &bull; SYS_FAN1</span>
+                </div>
+                <span id="rep-intake-fan-tag" class="fan-acoustic-tag moderate">MODERADO</span>
+              </div>
+              <div class="fan-card-body">
+                <div class="fan-card-main-val">
+                  <span class="fan-rpm-number" id="rep-intake-fan-avg">--</span>
+                  <span class="fan-rpm-unit">RPM (Avg)</span>
+                </div>
+                <div class="fan-card-pills">
+                  <span class="fan-mini-pill" id="rep-intake-fan-min">Min: --</span>
+                  <span class="fan-mini-pill" id="rep-intake-fan-max">Max: --</span>
+                  <span class="fan-mini-pill" id="rep-intake-fan-p95">P95: --</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Case Exhaust Fan -->
+            <div class="fan-stat-card">
+              <div class="fan-card-header">
+                <div>
+                  <span class="fan-card-name">Case Exhaust (Rear)</span>
+                  <span class="fan-card-sub">120mm Exhaust &bull; SYS_FAN2</span>
+                </div>
+                <span id="rep-exhaust-fan-tag" class="fan-acoustic-tag moderate">MODERADO</span>
+              </div>
+              <div class="fan-card-body">
+                <div class="fan-card-main-val">
+                  <span class="fan-rpm-number" id="rep-exhaust-fan-avg">--</span>
+                  <span class="fan-rpm-unit">RPM (Avg)</span>
+                </div>
+                <div class="fan-card-pills">
+                  <span class="fan-mini-pill" id="rep-exhaust-fan-min">Min: --</span>
+                  <span class="fan-mini-pill" id="rep-exhaust-fan-max">Max: --</span>
+                  <span class="fan-mini-pill" id="rep-exhaust-fan-p95">P95: --</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Airflow & Acoustic Diagnostic Note -->
+          <div class="report-acoustic-note" id="rep-acoustic-note">
+            <span class="acoustic-note-icon">💡</span>
+            <span id="rep-acoustic-text">Calculando balance de flujo...</span>
           </div>
         </div>
 
