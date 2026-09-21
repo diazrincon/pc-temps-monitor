@@ -2,7 +2,7 @@
 
 > Modern, lightweight, automated PC temperature and fan telemetry monitoring dashboard for Windows, integrating with LibreHardwareMonitor.
 
-![AeroPulse Pro](https://img.shields.io/badge/version-v1.2.0-blue.svg)
+![AeroPulse Pro](https://img.shields.io/badge/version-v1.3.0-blue.svg)
 ![Node.js](https://img.shields.io/badge/node.js-v24+-68a063.svg)
 ![Backend](https://img.shields.io/badge/Fastify-v5-black.svg)
 ![Database](https://img.shields.io/badge/SQLite-WAL-003b57.svg)
@@ -13,10 +13,11 @@
 ## 🌟 Highlights
 
 - **Real-Time Telemetry**: Instant CPU, GPU, and Case fan readings updated every 5 seconds.
-- **🧪 Thermal Study Recorder**:
+- **🧪 Thermal Study & Benchmark Recorder**:
   - Record benchmark or gaming sessions over flexible durations (`10 min`, `30 min`, `1 hr`, or `Unlimited`).
   - Persistent study sessions stored in SQLite with full telemetry time series.
   - Automatic statistical analysis: Min, Avg, Max, P95 (95th percentile), GPU thermal delta (Hotspot vs Core), and throttling incident counters.
+  - **🌀 Fans & Acoustic Speeds (RPM)**: Complete breakdown for CPU Cooler, GPU dual fans, and Case Intake/Exhaust fans with Min, Avg, Max, P95, acoustic classifications (`SILENCIOSO`, `MODERADO`, `ALTO FLUJO`, `0dB STOP`), and dynamic Airflow balance diagnosis.
   - Automated **Thermal Health Grade** (`A+`, `A`, `B`, `C`) evaluating cooling performance.
   - **PDF Export**: Print-ready A4/Letter formatted report without web navigation chrome.
   - **LLM Diagnostic Prompt**: One-click prompt generator tailored for ChatGPT, Claude, or Gemini containing exact hardware specs, stats tables, and targeted engineering questions.

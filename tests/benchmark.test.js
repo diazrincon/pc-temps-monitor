@@ -39,7 +39,10 @@ assert.strictEqual(summary.gpu.coreTemp.max, 68);
 assert.strictEqual(summary.gpu.hotspotTemp.max, 80);
 assert.strictEqual(summary.incidents.totalThrottleEvents, 0);
 assert.ok(summary.grade === 'A+' || summary.grade === 'A');
-console.log('✓ summarizeBenchmark computed KPIs properly. Grade:', summary.grade);
+assert.ok(summary.fans.acoustics);
+assert.strictEqual(summary.fans.acoustics.cpuFan.tag, 'MODERADO');
+assert.ok(summary.fans.acoustics.airflowBalance);
+console.log('✓ summarizeBenchmark computed KPIs & Acoustics properly. Grade:', summary.grade);
 
 // Test 4: generateLlmPrompt
 const prompt = generateLlmPrompt(fakeSession, summary, {

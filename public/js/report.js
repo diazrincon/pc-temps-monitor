@@ -17,6 +17,7 @@ function initReportController() {
 
   const btnConfirmStart = document.getElementById('btn-confirm-start');
   const btnCancelStart = document.getElementById('btn-cancel-start');
+  const btnCancelStart2 = document.getElementById('btn-cancel-start-2');
   const btnCloseReport = document.getElementById('btn-close-report');
   const btnCloseHistory = document.getElementById('btn-close-history');
 
@@ -32,12 +33,34 @@ function initReportController() {
     });
   }
 
-  // Cancel Start Modal
-  if (btnCancelStart) {
-    btnCancelStart.addEventListener('click', () => {
-      modalStart.classList.remove('active');
-    });
-  }
+  // Cancel Start Modal (both X and Cancelar button)
+  [btnCancelStart, btnCancelStart2].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', () => {
+        modalStart.classList.remove('active');
+      });
+    }
+  });
+
+  // Close modals on clicking overlay backdrop
+  [modalStart, modalReport, modalHistory].forEach(modal => {
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('active');
+        }
+      });
+    }
+  });
+
+  // Close modals with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      [modalStart, modalReport, modalHistory].forEach(modal => {
+        if (modal) modal.classList.remove('active');
+      });
+    }
+  });
 
   // Duration Pills selection
   const durationPills = document.querySelectorAll('.duration-pill');
@@ -262,6 +285,72 @@ async function openReportModal(sessionOrId) {
   document.getElementById('rep-hotspot-avg').textContent = `Delta: +${s.gpu.delta.avg.toFixed(1)} °C | P95: ${s.gpu.hotspotTemp.p95.toFixed(1)} °C`;
 
   document.getElementById('rep-fans-summary').textContent = `Intake: ${s.fans.intakeRpm.avg} RPM | Exhaust: ${s.fans.exhaustRpm.avg} RPM`;
+
+  // Fans & Acoustic Speeds (RPM) Breakdown
+  const ac = s.fans.acoustics || {
+    cpuFan: { tag: s.cpu.fanRpm.avg < 950 ? 'SILENCIOSO' : 'MODERADO', badge: s.cpu.fanRpm.avg < 950 ? 'quiet' : 'moderate' },
+    gpuFan: { tag: s.gpu.fanRpm.avg === 0 ? '0dB STOP' : 'ACTIVO', badge: s.gpu.fanRpm.avg === 0 ? 'zerodb' : 'moderate' },
+    intakeFan: { tag: s.fans.intakeRpm.avg > 1350 ? 'ALTO FLUJO' : 'MODERADO', badge: s.fans.intakeRpm.avg > 1350 ? 'high' : 'moderate' },
+    exhaustFan: { tag: s.fans.exhaustRpm.avg > 1350 ? 'ALTO FLUJO' : 'MODERADO', badge: s.fans.exhaustRpm.avg > 1350 ? 'high' : 'moderate' },
+    airflowBalance: 'Equilibrado',
+    airflowBadge: 'badge-cyan',
+    airflowSummaryText: 'Flujo de aire continuo y balanceado en el chasis.'
+  };
+
+  const repAirflowBadge = document.getElementById('rep-airflow-badge');
+  if (repAirflowBadge) {
+    repAirflowBadge.className = `report-airflow-pill ${ac.airflowBadge || 'badge-cyan'}`;
+    document.getElementById('rep-airflow-balance-text').textContent = ac.airflowBalance || 'Equilibrado';
+  }
+
+  // CPU Cooler
+  const elCpuTag = document.getElementById('rep-cpu-fan-tag');
+  if (elCpuTag) {
+    elCpuTag.className = `fan-acoustic-tag ${ac.cpuFan.badge}`;
+    elCpuTag.textContent = ac.cpuFan.tag;
+    document.getElementById('rep-cpu-fan-avg').textContent = s.cpu.fanRpm.avg || 0;
+    document.getElementById('rep-cpu-fan-min').textContent = `Min: ${s.cpu.fanRpm.min || 0}`;
+    document.getElementById('rep-cpu-fan-max').textContent = `Max: ${s.cpu.fanRpm.max || 0}`;
+    document.getElementById('rep-cpu-fan-p95').textContent = `P95: ${s.cpu.fanRpm.p95 || 0}`;
+  }
+
+  // GPU Fans
+  const elGpuTag = document.getElementById('rep-gpu-fan-tag');
+  if (elGpuTag) {
+    elGpuTag.className = `fan-acoustic-tag ${ac.gpuFan.badge}`;
+    elGpuTag.textContent = ac.gpuFan.tag;
+    document.getElementById('rep-gpu-fan-avg').textContent = s.gpu.fanRpm.avg || 0;
+    document.getElementById('rep-gpu-fan-min').textContent = `Min: ${s.gpu.fanRpm.min || 0}`;
+    document.getElementById('rep-gpu-fan-max').textContent = `Max: ${s.gpu.fanRpm.max || 0}`;
+    document.getElementById('rep-gpu-fan-p95').textContent = `P95: ${s.gpu.fanRpm.p95 || 0}`;
+  }
+
+  // Case Intake
+  const elIntakeTag = document.getElementById('rep-intake-fan-tag');
+  if (elIntakeTag) {
+    elIntakeTag.className = `fan-acoustic-tag ${ac.intakeFan.badge}`;
+    elIntakeTag.textContent = ac.intakeFan.tag;
+    document.getElementById('rep-intake-fan-avg').textContent = s.fans.intakeRpm.avg || 0;
+    document.getElementById('rep-intake-fan-min').textContent = `Min: ${s.fans.intakeRpm.min || 0}`;
+    document.getElementById('rep-intake-fan-max').textContent = `Max: ${s.fans.intakeRpm.max || 0}`;
+    document.getElementById('rep-intake-fan-p95').textContent = `P95: ${s.fans.intakeRpm.p95 || 0}`;
+  }
+
+  // Case Exhaust
+  const elExhaustTag = document.getElementById('rep-exhaust-fan-tag');
+  if (elExhaustTag) {
+    elExhaustTag.className = `fan-acoustic-tag ${ac.exhaustFan.badge}`;
+    elExhaustTag.textContent = ac.exhaustFan.tag;
+    document.getElementById('rep-exhaust-fan-avg').textContent = s.fans.exhaustRpm.avg || 0;
+    document.getElementById('rep-exhaust-fan-min').textContent = `Min: ${s.fans.exhaustRpm.min || 0}`;
+    document.getElementById('rep-exhaust-fan-max').textContent = `Max: ${s.fans.exhaustRpm.max || 0}`;
+    document.getElementById('rep-exhaust-fan-p95').textContent = `P95: ${s.fans.exhaustRpm.p95 || 0}`;
+  }
+
+  const elAcousticText = document.getElementById('rep-acoustic-text');
+  if (elAcousticText) {
+    elAcousticText.textContent = ac.airflowSummaryText;
+  }
 
   // Throttling warning
   const repThrottleAlert = document.getElementById('rep-throttle-alert');
