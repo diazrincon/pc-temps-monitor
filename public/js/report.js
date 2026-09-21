@@ -100,20 +100,29 @@ function initReportController() {
   // Stop Active Study
   if (btnStopStudy) {
     btnStopStudy.addEventListener('click', async () => {
-      if (!confirm('¿Deseas finalizar la sesión de monitoreo y generar el reporte ahora?')) {
-        return;
-      }
+      btnStopStudy.disabled = true;
+      btnStopStudy.innerHTML = '<span>⏳ Finalizando...</span>';
+
       try {
         const res = await fetch('/api/sessions/stop', { method: 'POST' });
         const data = await res.json();
-        if (data.success) {
-          stopRecordingUI();
+        stopRecordingUI();
+        if (data.success && data.session) {
           openReportModal(data.session);
         } else {
-          alert('Error al finalizar: ' + data.error);
+          // Fallback: fetch latest session to display report
+          const listRes = await fetch('/api/sessions');
+          const listData = await listRes.json();
+          if (listData.sessions && listData.sessions.length > 0) {
+            openReportModal(listData.sessions[0].id);
+          }
         }
       } catch (err) {
-        alert('Error de red: ' + err.message);
+        stopRecordingUI();
+        console.error('Error al finalizar sesión:', err);
+      } finally {
+        btnStopStudy.disabled = false;
+        btnStopStudy.innerHTML = '<span>⏹ Finalizar y Reportar</span>';
       }
     });
   }

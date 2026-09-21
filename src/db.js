@@ -305,6 +305,17 @@ function deleteBenchmarkSession(id) {
   return res;
 }
 
+function getActiveBenchmarkSession() {
+  const row = db.prepare(`SELECT * FROM benchmark_sessions WHERE status = 'recording' ORDER BY start_time DESC LIMIT 1`).get();
+  if (!row) return null;
+  const samples = db.prepare('SELECT * FROM session_samples WHERE session_id = ? ORDER BY id ASC').all(row.id);
+  return {
+    ...row,
+    summary: row.summary_json ? JSON.parse(row.summary_json) : null,
+    samples
+  };
+}
+
 module.exports = {
   db,
   insertMetric,
@@ -315,6 +326,7 @@ module.exports = {
   addSessionSample,
   finishBenchmarkSession,
   getBenchmarkSession,
+  getActiveBenchmarkSession,
   listBenchmarkSessions,
   deleteBenchmarkSession
 };

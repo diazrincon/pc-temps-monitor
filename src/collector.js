@@ -14,6 +14,8 @@ const {
   addSessionSample,
   finishBenchmarkSession,
   getBenchmarkSession,
+  getActiveBenchmarkSession,
+  listBenchmarkSessions,
   getSessionSamples
 } = require('./db.js');
 const { summarizeBenchmark } = require('./benchmark.js');
@@ -27,7 +29,26 @@ class TelemetryCollector extends EventEmitter {
     this.current = null;
     this.isLive = false;
     this.lastSuccessfulPoll = null;
-    this.activeSession = null;
+    
+    // Restore active session if server was restarted during recording
+    try {
+      const activeDb = getActiveBenchmarkSession();
+      if (activeDb) {
+        this.activeSession = {
+          id: activeDb.id,
+          title: activeDb.title,
+          durationType: activeDb.duration_type,
+          targetSeconds: activeDb.target_seconds,
+          startTime: activeDb.start_time,
+          sampleCount: activeDb.samples ? activeDb.samples.length : 0
+        };
+        console.log(`[Collector] Restored active session '${activeDb.title}' (${activeDb.id}) from database.`);
+      } else {
+        this.activeSession = null;
+      }
+    } catch (e) {
+      this.activeSession = null;
+    }
   }
 
   async poll() {
@@ -137,11 +158,21 @@ class TelemetryCollector extends EventEmitter {
   }
 
   stopBenchmarkSession() {
-    if (!this.activeSession) {
+    let targetId = this.activeSession ? this.activeSession.id : null;
+    if (!targetId) {
+      const activeDb = getActiveBenchmarkSession();
+      if (activeDb) targetId = activeDb.id;
+    }
+
+    if (!targetId) {
+      const sessions = listBenchmarkSessions();
+      if (sessions && sessions.length > 0) {
+        return getBenchmarkSession(sessions[0].id);
+      }
       return null;
     }
 
-    const sessionData = getBenchmarkSession(this.activeSession.id);
+    const sessionData = getBenchmarkSession(targetId);
     if (!sessionData) {
       this.activeSession = null;
       return null;
@@ -159,7 +190,7 @@ class TelemetryCollector extends EventEmitter {
     );
 
     finishBenchmarkSession(
-      this.activeSession.id,
+      targetId,
       endTime,
       'completed',
       JSON.stringify(summary)
