@@ -26,6 +26,13 @@ function computeSeriesStats(arr) {
   return { min, max, avg, p95, count: valid.length };
 }
 
+function getFanAcousticTag(rpm, isGpu = false) {
+  if (rpm === 0) return { tag: '0dB STOP', badge: 'zerodb', desc: 'Ventilador detenido / Silencio total (0 RPM)' };
+  if (rpm < 950) return { tag: 'SILENCIOSO', badge: 'quiet', desc: 'Operación inaudible / Ultra silenciosa (< 950 RPM)' };
+  if (rpm < 1350) return { tag: 'MODERADO', badge: 'moderate', desc: 'Flujo y acústica equilibrados (950–1350 RPM)' };
+  return { tag: 'ALTO FLUJO', badge: 'high', desc: 'Máxima ventilación / Sonoridad perceptible (> 1350 RPM)' };
+}
+
 /**
  * Summarizes session telemetry into KPIs, diagnosis, and thermal rating
  */
@@ -118,6 +125,35 @@ function summarizeBenchmark(session, samples, hardwareMeta = {}, thresholds = {}
     gradeDescription = 'Bueno: Funcionamiento normal y seguro para gaming y productividad.';
   }
 
+  // Airflow balance & acoustic assessment
+  let airflowBalance = 'Equilibrado (Neutral)';
+  let airflowBadge = 'badge-cyan';
+  let airflowSummaryText = 'El flujo de aire entre entrada y extracción está balanceado de forma óptima.';
+  
+  const totalRpm = intakeStats.avg + exhaustStats.avg;
+  const intakeRatio = totalRpm > 0 ? Math.round((intakeStats.avg / totalRpm) * 100) : 50;
+
+  if (intakeStats.avg > exhaustStats.avg * 1.08) {
+    airflowBalance = 'Presión Positiva';
+    airflowBadge = 'badge-emerald';
+    airflowSummaryText = 'Presión positiva: Mayor entrada de aire. Expulsa el aire por ranuras y minimiza el ingreso de polvo no filtrado.';
+  } else if (exhaustStats.avg > intakeStats.avg * 1.08) {
+    airflowBalance = 'Presión Negativa';
+    airflowBadge = 'badge-amber';
+    airflowSummaryText = 'Presión negativa: Mayor extracción de aire caliente. Rápida evacuación térmica.';
+  }
+
+  const acoustics = {
+    cpuFan: getFanAcousticTag(cpuFanStats.avg),
+    gpuFan: getFanAcousticTag(gpuFanStats.avg, true),
+    intakeFan: getFanAcousticTag(intakeStats.avg),
+    exhaustFan: getFanAcousticTag(exhaustStats.avg),
+    airflowBalance,
+    airflowBadge,
+    intakeRatio,
+    airflowSummaryText
+  };
+
   return {
     sampleCount: count,
     durationSeconds,
@@ -142,7 +178,8 @@ function summarizeBenchmark(session, samples, hardwareMeta = {}, thresholds = {}
     fans: {
       intakeRpm: intakeStats,
       exhaustRpm: exhaustStats,
-      moboTemp: moboStats
+      moboTemp: moboStats,
+      acoustics
     },
     incidents: {
       cpuThrottleCount,
@@ -225,5 +262,6 @@ module.exports = {
   calculatePercentile,
   computeSeriesStats,
   summarizeBenchmark,
-  generateLlmPrompt
+  generateLlmPrompt,
+  getFanAcousticTag
 };

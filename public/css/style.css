@@ -1294,6 +1294,184 @@ body {
   color: var(--text-secondary);
 }
 
+/* Fans & Acoustic Speeds (RPM) Section in Report */
+.report-fans-section {
+  margin-bottom: 22px;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.report-fans-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.report-fans-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-fans-icon {
+  font-size: 1.1rem;
+}
+
+.report-airflow-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.airflow-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.report-fans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.fan-stat-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  transition: var(--transition-smooth);
+}
+
+.fan-stat-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.fan-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.fan-card-name {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.fan-card-sub {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.fan-acoustic-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.fan-acoustic-tag.zerodb {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.fan-acoustic-tag.quiet {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.fan-acoustic-tag.moderate {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.fan-acoustic-tag.high {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+}
+
+.fan-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fan-card-main-val {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.fan-rpm-number {
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.fan-rpm-unit {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.fan-card-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+
+.fan-mini-pill {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.report-acoustic-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  color: #bae6fd;
+}
+
+.acoustic-note-icon {
+  font-size: 1rem;
+}
+
 .report-chart-section {
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--border-subtle);
@@ -1463,6 +1641,31 @@ body {
     background: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
     break-inside: avoid;
+  }
+
+  .report-fans-section,
+  .fan-stat-card,
+  .report-acoustic-note {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    break-inside: avoid;
+  }
+
+  .fan-card-name,
+  .fan-rpm-number {
+    color: #0f172a !important;
+  }
+
+  .fan-card-sub,
+  .fan-rpm-unit,
+  .fan-card-pills {
+    color: #64748b !important;
+  }
+
+  .fan-mini-pill {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
   }
 }
 
