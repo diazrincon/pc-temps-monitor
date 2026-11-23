@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-23
+
+### ⚠️ Breaking changes
+- The dashboard now requires a running LibreHardwareMonitor instance to show data (simulated telemetry was removed).
+- The API no longer sends CORS headers and rejects cross-origin `POST`/`DELETE` requests and non-loopback `Host` headers when bound to loopback.
+
 ### Security
 - Upgrade `@fastify/static` 8 → 10 (path traversal and route guard bypass advisories), `fastify` 5.12.8 and transitive `fast-uri`; `npm audit` reports 0 vulnerabilities.
 - Remove `@fastify/cors` and the wildcard `Access-Control-Allow-Origin` on the SSE stream: any website could read local telemetry or start/stop/delete studies. The API is now same-origin only.
@@ -67,7 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release: real-time CPU/GPU/fan telemetry dashboard backed by LibreHardwareMonitor, Fastify and SQLite.
 
-[Unreleased]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.4.0...develop
+[Unreleased]: https://github.com/diazrincon/pc-temps-monitor/compare/v2.0.0...develop
+[2.0.0]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.1.0...v1.2.0
