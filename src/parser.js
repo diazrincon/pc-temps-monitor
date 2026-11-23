@@ -51,7 +51,6 @@ function findAllNodes(root, predicate, results = []) {
 function parseLhmTree(tree) {
   const result = {
     timestamp: new Date().toISOString(),
-    isMock: false,
     cpu: {
       name: 'Unknown CPU',
       packageTemp: null,

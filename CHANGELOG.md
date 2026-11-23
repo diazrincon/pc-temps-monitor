@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- Simulated telemetry fallback. When LibreHardwareMonitor is unreachable the dashboard shows an `LHM OFFLINE` state, clears all readings and stores nothing; previously stored simulated rows are purged on startup.
+
+### Changed
+- Starting a thermal study is rejected while LibreHardwareMonitor is offline.
+- Charts use a real time axis fixed to the selected window, with visible gaps where no data exists.
+
+### Fixed
+- History ranges (15M/1H/6H/24H) returned every record of the current UTC day due to a timestamp format mismatch; each range now returns exactly its window, downsampled to 5s/15s/1m/5m buckets.
+- 24h retention cleanup kept data since midnight of the previous day for the same reason.
+- Live samples were mixed with aggregated history and capped at 120 points, distorting longer ranges.
+- Switching ranges quickly could render a stale response.
+
 ## [1.4.0] - 2026-11-23
 
 ### Added
