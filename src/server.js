@@ -47,6 +47,7 @@ app.get('/api/current', async (request, reply) => {
     thresholds: config.thresholds,
     hardwareMeta: config.hardwareMeta,
     isLive: collector.isLive,
+    lhmError: collector.lastError || null,
     activeSession: collector.getActiveSessionState()
   };
 });
@@ -167,6 +168,7 @@ app.get('/api/stream', (request, reply) => {
     thresholds: config.thresholds,
     hardwareMeta: config.hardwareMeta,
     isLive: collector.isLive,
+    lhmError: collector.lastError || null,
     activeSession: collector.getActiveSessionState()
   });
   reply.raw.write(`data: ${initialData}\n\n`);
@@ -177,6 +179,7 @@ app.get('/api/stream', (request, reply) => {
       const payload = JSON.stringify({
         telemetry: data.telemetry,
         activeSession: data.activeSession,
+        lhmError: data.lhmError,
         thresholds: config.thresholds,
         hardwareMeta: config.hardwareMeta,
         isLive: collector.isLive

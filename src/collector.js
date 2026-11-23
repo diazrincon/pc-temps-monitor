@@ -6,7 +6,6 @@
 
 const EventEmitter = require('node:events');
 const { parseLhmTree } = require('./parser.js');
-const { getMockTelemetry } = require('./mock.js');
 const {
   insertMetric,
   cleanupOldRecords,
@@ -29,6 +28,7 @@ class TelemetryCollector extends EventEmitter {
     this.current = null;
     this.isLive = false;
     this.lastSuccessfulPoll = null;
+    this.lastError = undefined; // undefined = never polled yet
     
     // Restore active session if server was restarted during recording
     try {
@@ -57,31 +57,48 @@ class TelemetryCollector extends EventEmitter {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), this.config.lhm.timeoutMs || 3500);
 
-      const response = await fetch(this.config.lhm.url, {
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' }
-      });
-      clearTimeout(timeout);
+      let response;
+      try {
+        response = await fetch(this.config.lhm.url, {
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
 
-      if (response.ok) {
-        const tree = await response.json();
-        telemetry = parseLhmTree(tree);
-        telemetry.isMock = false;
-        
-        if (!this.isLive) {
-          console.log(`[Collector] [LIVE] Connected to LibreHardwareMonitor at ${this.config.lhm.url}`);
-          this.isLive = true;
-        }
-        this.lastSuccessfulPoll = new Date();
-      } else {
+      if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-    } catch (err) {
-      if (this.isLive) {
-        console.warn(`[Collector] [FALLBACK] Lost connection to LHM (${err.message}). Using simulated telemetry.`);
-        this.isLive = false;
+
+      const tree = await response.json();
+      telemetry = parseLhmTree(tree);
+
+      if (!this.isLive) {
+        console.log(`[Collector] [LIVE] Connected to LibreHardwareMonitor at ${this.config.lhm.url}`);
+        this.isLive = true;
       }
-      telemetry = getMockTelemetry();
+      this.lastError = null;
+      this.lastSuccessfulPoll = new Date();
+    } catch (err) {
+      const reason = err.name === 'AbortError' ? 'timeout' : err.message;
+      if (this.isLive || this.lastError === undefined) {
+        console.warn(`[Collector] [OFFLINE] LibreHardwareMonitor not reachable at ${this.config.lhm.url} (${reason}). Waiting for it...`);
+      }
+      this.isLive = false;
+      this.lastError = reason;
+    }
+
+    if (!telemetry) {
+      // No data: nothing is stored or recorded, the gap is kept as-is.
+      this.current = null;
+      this.checkSessionTarget();
+      this.emit('telemetry', {
+        telemetry: null,
+        lhmError: this.lastError,
+        activeSession: this.getActiveSessionState()
+      });
+      return null;
     }
 
     // Save in general metrics database
@@ -96,23 +113,17 @@ class TelemetryCollector extends EventEmitter {
       try {
         addSessionSample(this.activeSession.id, telemetry);
         this.activeSession.sampleCount = (this.activeSession.sampleCount || 0) + 1;
-
-        // Check if duration limit reached
-        if (this.activeSession.targetSeconds) {
-          const elapsed = (Date.now() - new Date(this.activeSession.startTime).getTime()) / 1000;
-          if (elapsed >= this.activeSession.targetSeconds) {
-            console.log(`[Collector] Benchmark session target time reached (${elapsed}s). Finishing session.`);
-            this.stopBenchmarkSession();
-          }
-        }
       } catch (sessionErr) {
         console.error('[Collector] Error recording session sample:', sessionErr.message);
       }
     }
 
+    this.checkSessionTarget();
+
     this.current = telemetry;
     this.emit('telemetry', {
       telemetry,
+      lhmError: null,
       activeSession: this.getActiveSessionState()
     });
     return telemetry;
@@ -120,9 +131,26 @@ class TelemetryCollector extends EventEmitter {
 
   // --- BENCHMARK SESSION CONTROLS ---
 
+  /** Finish the active session once its target duration is reached. */
+  checkSessionTarget() {
+    if (!this.activeSession || !this.activeSession.targetSeconds) return;
+    const elapsed = (Date.now() - new Date(this.activeSession.startTime).getTime()) / 1000;
+    if (elapsed >= this.activeSession.targetSeconds) {
+      console.log(`[Collector] Benchmark session target time reached (${Math.round(elapsed)}s). Finishing session.`);
+      try {
+        this.stopBenchmarkSession();
+      } catch (err) {
+        console.error('[Collector] Error finishing session:', err.message);
+      }
+    }
+  }
+
   startBenchmarkSession({ title, durationType }) {
     if (this.activeSession) {
       throw new Error('Ya existe un estudio de benchmark en curso.');
+    }
+    if (!this.isLive) {
+      throw new Error('LibreHardwareMonitor no está conectado. Ábrelo y activa el Remote Web Server antes de iniciar un estudio.');
     }
 
     let targetSeconds = null;
@@ -258,8 +286,9 @@ class TelemetryCollector extends EventEmitter {
     }
   }
 
+  /** Latest telemetry, or null while LibreHardwareMonitor is unreachable. */
   getCurrent() {
-    return this.current || getMockTelemetry();
+    return this.isLive ? this.current : null;
   }
 }
 

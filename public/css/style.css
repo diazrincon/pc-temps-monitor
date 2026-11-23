@@ -192,12 +192,6 @@ body {
   color: #34d399;
 }
 
-.connection-badge.simulated {
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  color: #fbbf24;
-}
-
 .connection-badge.offline {
   background: rgba(244, 63, 94, 0.12);
   border: 1px solid rgba(244, 63, 94, 0.35);

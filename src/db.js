@@ -79,6 +79,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_session_samples_session ON session_samples(session_id);
 `);
 
+// Purge simulated rows written by versions < 1.5 (they had fake telemetry)
+db.exec('DELETE FROM metrics WHERE is_mock = 1;');
+
 const insertStmt = db.prepare(`
   INSERT INTO metrics (
     timestamp, is_mock, cpu_temp, cpu_load, cpu_power,
@@ -94,7 +97,7 @@ const insertStmt = db.prepare(`
 function insertMetric(m) {
   insertStmt.run(
     m.timestamp,
-    m.isMock ? 1 : 0,
+    0, // is_mock: legacy column, simulated telemetry was removed
     m.cpu.packageTemp ?? null,
     m.cpu.loadTotal ?? null,
     m.cpu.power ?? null,
