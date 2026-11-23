@@ -2,11 +2,13 @@
 
 > Modern, lightweight, automated PC temperature and fan telemetry monitoring dashboard for Windows, integrating with LibreHardwareMonitor.
 
-![AeroPulse Pro](https://img.shields.io/badge/version-v1.3.0-blue.svg)
+![AeroPulse Pro](https://img.shields.io/badge/version-v1.4.0-blue.svg)
 ![Node.js](https://img.shields.io/badge/node.js-v24+-68a063.svg)
 ![Backend](https://img.shields.io/badge/Fastify-v5-black.svg)
 ![Database](https://img.shields.io/badge/SQLite-WAL-003b57.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/diazrincon/pc-temps-monitor/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/diazrincon/pc-temps-monitor/actions/workflows/ci.yml)
+[![gitmoji](https://img.shields.io/badge/gitmoji-%20😜%20😍-FFDD67.svg)](https://gitmoji.dev)
 
 ---
 
@@ -37,38 +39,77 @@
 
 ## 🚀 Quick Start
 
-### 1. Requirements & Configuration
+### 1. Requirements
 - Windows 10 or 11
-- Node.js v24+
-- [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
+- [Node.js](https://nodejs.org/) v24+
+- [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) v0.9.5+ (downloaded separately, see below)
 
-Set the `LHM_PATH` environment variable pointing to your `LibreHardwareMonitor.exe`:
+### 2. Download LibreHardwareMonitor
+
+> LibreHardwareMonitor binaries are **not** included in this repository (third-party project, licensed under MPL-2.0).
+
+**Option A — Manual download**
+
+1. Go to the [LibreHardwareMonitor releases page](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest).
+2. Download one of the assets:
+   - `LibreHardwareMonitor.NET.10.zip` — requires the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (recommended).
+   - `LibreHardwareMonitor.zip` — .NET Framework 4.7.2 build (preinstalled on Windows 10/11).
+3. Extract it into a `LibreHardwareMonitor/` folder in the project root (ignored by Git), or anywhere you like.
+
+**Option B — PowerShell**
+
 ```powershell
-# Set permanently for your user account:
+# Downloads the latest .NET 10 build into .\LibreHardwareMonitor
+$release = Invoke-RestMethod https://api.github.com/repos/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest
+$asset   = $release.assets | Where-Object name -eq "LibreHardwareMonitor.NET.10.zip"
+Invoke-WebRequest $asset.browser_download_url -OutFile "$env:TEMP\lhm.zip"
+Expand-Archive "$env:TEMP\lhm.zip" -DestinationPath .\LibreHardwareMonitor -Force
+Remove-Item "$env:TEMP\lhm.zip"
+```
+
+**Option C — winget**
+
+```powershell
+winget install LibreHardwareMonitor.LibreHardwareMonitor
+```
+
+*winget installs it as a portable app outside the project; point `LHM_PATH` to the installed `LibreHardwareMonitor.exe` (see below).*
+
+`scripts/start-lhm.ps1` looks for the executable in this order:
+
+1. `LHM_PATH` environment variable
+2. `.\LibreHardwareMonitor.NET.10\LibreHardwareMonitor.exe`
+3. `.\LibreHardwareMonitor\LibreHardwareMonitor.exe`
+4. `C:\Program Files\LibreHardwareMonitor\LibreHardwareMonitor.exe`
+
+If you installed it elsewhere, set `LHM_PATH`:
+
+```powershell
 [System.Environment]::SetEnvironmentVariable("LHM_PATH", "D:\Tools\LibreHardwareMonitor\LibreHardwareMonitor.exe", "User")
 ```
-*(Or keep a local `LibreHardwareMonitor.NET.10/` folder in the project root, which is automatically ignored by Git).*
 
-### 2. Installation
+### 3. Install dependencies
 ```powershell
-# Install dependencies
 npm install
 ```
 
-### 3. Launch LibreHardwareMonitor
+### 4. Launch LibreHardwareMonitor
 LibreHardwareMonitor requires Administrator rights to access motherboard and GPU sensors.
 ```powershell
 .\scripts\start-lhm.ps1
 ```
-*Note: Ensure `Options -> Remote Web Server -> Run` is active (port 8085).*
+Then enable **Options → Remote Web Server → Run** (default port `8085`).
 
-### 4. Start the Dashboard
+### 5. Start the Dashboard
 ```powershell
 .\scripts\start-dashboard.ps1
 # or
 npm start
 ```
 Open your browser at: **[http://localhost:8367](http://localhost:8367)**
+
+### Configuration
+Edit [`config.json`](config.json) to change the port, LHM endpoint, polling interval, retention, temperature thresholds, and the hardware labels shown in reports.
 
 ---
 
@@ -96,16 +137,31 @@ powershell.exe -ExecutionPolicy Bypass -File .\scripts\unregister-task.ps1
 
 ---
 
-## 🌿 Gitflow Workflow
+## 🧪 Development
 
-This repository follows standard **Gitflow** branching practices:
-- `main`: Production-ready, tagged releases (`v1.0.0`).
-- `develop`: Ongoing development and feature integration.
-- `feature/*`: Specific feature branches branched from and merged back into `develop`.
-- `release/*`: Release candidate branches for stabilization, merged into `main` (with tag) and `develop`.
-- `hotfix/*`: Critical bug fixes branched from `main` and merged into both `main` and `develop`.
+```powershell
+npm run dev   # auto-restart on changes
+npm test      # parser & benchmark unit tests
+```
+
+Without LibreHardwareMonitor running, the dashboard falls back to simulated telemetry, so UI work does not require real sensors.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. In short:
+
+- **Gitflow**: branch `feature/*` from `develop`; `release/*` and `hotfix/*` merge into `main` (tagged) and back into `develop`.
+- **Gitmoji** commits: `✨ feat(study): add CSV export`.
+- Do not commit LibreHardwareMonitor binaries.
+
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities as described in [SECURITY.md](SECURITY.md). See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ---
 
 ## 📄 License
-MIT License.
+
+[MIT](LICENSE) © José Díaz Rincón
+
+LibreHardwareMonitor is a separate project licensed under the [MPL-2.0](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LICENSE).
