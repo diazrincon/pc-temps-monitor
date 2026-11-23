@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Upgrade `@fastify/static` 8 → 10 (path traversal and route guard bypass advisories), `fastify` 5.12.8 and transitive `fast-uri`; `npm audit` reports 0 vulnerabilities.
+- Remove `@fastify/cors` and the wildcard `Access-Control-Allow-Origin` on the SSE stream: any website could read local telemetry or start/stop/delete studies. The API is now same-origin only.
+- Reject requests with a non-loopback `Host` header when bound to loopback (DNS rebinding protection).
+- Reject cross-origin state-changing requests (`POST`/`DELETE`) based on `Origin` / `Sec-Fetch-Site` (CSRF protection).
+
 ### Removed
 - Simulated telemetry fallback. When LibreHardwareMonitor is unreachable the dashboard shows an `LHM OFFLINE` state, clears all readings and stores nothing; previously stored simulated rows are purged on startup.
 
