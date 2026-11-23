@@ -5,6 +5,7 @@
 let currentRange = '1h';
 let eventSource = null;
 let pollTimer = null;
+let reconnectTimer = null;
 let lastUpdateDate = new Date();
 
 // DOM Elements
@@ -82,11 +83,53 @@ function setRadialRing(element, percent) {
   element.style.strokeDashoffset = Math.max(0, offset);
 }
 
+function updateConnectionBadge(data) {
+  if (data.telemetry && data.isLive) {
+    elements.connBadge.className = 'connection-badge live';
+    elements.connStatusText.textContent = 'LIVE (LHM CONNECTED)';
+  } else {
+    elements.connBadge.className = 'connection-badge offline';
+    elements.connStatusText.textContent = 'LHM OFFLINE';
+  }
+}
+
+/** Clear every reading so stale or fake values are never shown. */
+function showOfflineState(reason) {
+  const dash = [
+    [elements.cpuTemp, '--'], [elements.cpuMaxCore, '-- °C'], [elements.cpuFanRpm, '-- RPM'],
+    [elements.cpuPower, '-- W'], [elements.cpuLoad, '--%'],
+    [elements.gpuTemp, '--'], [elements.gpuFansRpm, '-- RPM'], [elements.gpuFanPct, '--%'],
+    [elements.gpuPower, '-- W'], [elements.gpuLoad, '--%'],
+    [elements.hotspotTemp, '--'], [elements.hotspotDelta, '-- °C'], [elements.hotspotMemLoad, '-- %'],
+    [elements.hotspotHealth, '--'],
+    [elements.fanIntake, '-- RPM'], [elements.fanExhaust, '-- RPM'], [elements.moboTemp, '-- °C'],
+    [elements.gpuFan1Rpm, '-- RPM'], [elements.gpuFan2Rpm, '-- RPM']
+  ];
+  dash.forEach(([el, text]) => { if (el) el.textContent = text; });
+
+  [elements.cpuTemp, elements.gpuTemp, elements.hotspotTemp].forEach(el => { if (el) el.style.color = ''; });
+  [elements.cpuStatusPill, elements.gpuStatusPill, elements.hotspotStatusPill].forEach(pill => {
+    if (!pill) return;
+    pill.className = 'metric-pill';
+    pill.textContent = 'NO DATA';
+  });
+  if (elements.hotspotHealth) elements.hotspotHealth.className = 'sub-val';
+  [elements.cpuFill, elements.gpuFill, elements.hotspotFill].forEach(el => { if (el) el.style.width = '0%'; });
+  setRadialRing(elements.cpuRingBar, 0);
+  setRadialRing(elements.gpuRingBar, 0);
+  elements.fanIntakeSpin.classList.remove('active');
+  elements.fanExhaustSpin.classList.remove('active');
+
+  elements.alertBanner.classList.remove('hidden');
+  elements.alertTitle.textContent = 'LibreHardwareMonitor not detected';
+  elements.alertDesc.textContent =
+    'Start LibreHardwareMonitor as Administrator and enable Options → Remote Web Server → Run (port 8085).' +
+    (reason ? ` (${reason})` : '');
+}
+
 function updateTelemetryUI(data) {
   const t = data.telemetry;
   if (data.thresholds) thresholds = data.thresholds;
-  lastUpdateDate = new Date();
-  elements.lastUpdated.textContent = 'Updated: ' + lastUpdateDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   // Reset CSS progress countdown animation
   if (elements.progressBar) {
@@ -95,14 +138,7 @@ function updateTelemetryUI(data) {
     elements.progressBar.style.animation = 'countdownBar 5s linear infinite';
   }
 
-  // Connection Badge
-  if (!t.isMock && data.isLive) {
-    elements.connBadge.className = 'connection-badge live';
-    elements.connStatusText.textContent = 'LIVE (LHM CONNECTED)';
-  } else {
-    elements.connBadge.className = 'connection-badge simulated';
-    elements.connStatusText.textContent = 'SIMULATED (LHM OFFLINE)';
-  }
+  updateConnectionBadge(data);
 
   // Active Benchmark Study Session State
   if (data.activeSession && typeof updateRecordingUI === 'function') {
@@ -110,6 +146,14 @@ function updateTelemetryUI(data) {
   } else if (!data.activeSession && typeof stopRecordingUI === 'function') {
     stopRecordingUI();
   }
+
+  if (!t) {
+    showOfflineState(data.lhmError);
+    return;
+  }
+
+  lastUpdateDate = new Date();
+  elements.lastUpdated.textContent = 'Updated: ' + lastUpdateDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   // --- CPU ---
   if (t.cpu.name && t.cpu.name !== 'Unknown CPU') {
@@ -246,14 +290,17 @@ function updateTelemetryUI(data) {
   appendLivePoint(t);
 }
 
-// Fetch historical records for charts
+// Fetch historical records for charts.
+// A request token discards stale responses when the range changes quickly.
+let historyRequestId = 0;
 async function loadHistory(range) {
+  const requestId = ++historyRequestId;
   try {
-    const res = await fetch(`/api/history?range=${range}`);
-    if (res.ok) {
-      const data = await res.json();
-      updateChartsWithHistory(data.data || []);
-    }
+    const res = await fetch(`/api/history?range=${encodeURIComponent(range)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (requestId !== historyRequestId) return; // a newer range was requested
+    setChartHistory(data);
   } catch (err) {
     console.error('Error loading history:', err);
   }
@@ -264,9 +311,11 @@ function setupRangeButtons() {
   const buttons = document.querySelectorAll('.range-btn');
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
+      const range = btn.getAttribute('data-range');
+      if (range === currentRange) return;
       buttons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      currentRange = btn.getAttribute('data-range');
+      currentRange = range;
       loadHistory(currentRange);
     });
   });
@@ -278,7 +327,13 @@ function setupEventStream() {
     eventSource.close();
   }
 
+  const isReconnect = eventSource !== null;
   eventSource = new EventSource('/api/stream');
+
+  // After a reconnect, reload history to fill the gap left by the outage
+  if (isReconnect) {
+    eventSource.onopen = () => loadHistory(currentRange);
+  }
 
   eventSource.onmessage = (event) => {
     try {
@@ -295,13 +350,16 @@ function setupEventStream() {
   };
 
   eventSource.onerror = () => {
-    // If SSE drops, fallback to HTTP polling
+    // Close the native auto-retry and schedule exactly one reconnect,
+    // otherwise every error would stack another connection.
     console.warn('SSE stream disconnected. Retrying in 5s...');
+    eventSource.close();
     if (elements.connBadge) {
       elements.connBadge.className = 'connection-badge offline';
       elements.connStatusText.textContent = 'RECONNECTING...';
     }
-    setTimeout(setupEventStream, 5000);
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(setupEventStream, 5000);
   };
 }
 

@@ -2,7 +2,7 @@
 
 > Modern, lightweight, automated PC temperature and fan telemetry monitoring dashboard for Windows, integrating with LibreHardwareMonitor.
 
-![AeroPulse Pro](https://img.shields.io/badge/version-v1.4.0-blue.svg)
+![AeroPulse Pro](https://img.shields.io/badge/version-v2.0.0-blue.svg)
 ![Node.js](https://img.shields.io/badge/node.js-v24+-68a063.svg)
 ![Backend](https://img.shields.io/badge/Fastify-v5-black.svg)
 ![Database](https://img.shields.io/badge/SQLite-WAL-003b57.svg)
@@ -32,7 +32,7 @@
   - Native Node 24 `node:sqlite` in WAL mode for persistent metrics.
   - Automatic 24h data retention with periodic cleanup.
   - Server-Sent Events (SSE) for low-latency browser streaming.
-- **Fail-Safe Operation**: If LibreHardwareMonitor is closed or offline, the dashboard seamlessly transitions to realistic simulated telemetry with visual status pills (`SIMULATED (LHM OFFLINE)` vs `LIVE (LHM CONNECTED)`).
+- **Honest Offline State**: Only real sensor data is shown and stored. If LibreHardwareMonitor is closed or unreachable, the dashboard shows `LHM OFFLINE`, clears all readings, and the timeline keeps the gap instead of inventing values. It reconnects automatically once LHM is back.
 - **Windows Boot Automation**: PowerShell scripts to register a background task in Windows Task Scheduler on dedicated port `8367`.
 
 ---
@@ -144,7 +144,7 @@ npm run dev   # auto-restart on changes
 npm test      # parser & benchmark unit tests
 ```
 
-Without LibreHardwareMonitor running, the dashboard falls back to simulated telemetry, so UI work does not require real sensors.
+The dashboard needs a running LibreHardwareMonitor instance to display data; without it, it stays in the `LHM OFFLINE` state. Unit tests use the fixture in `tests/mock-data.json` and do not require LHM.
 
 ---
 

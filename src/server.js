@@ -7,9 +7,9 @@ const path = require('node:path');
 const fs = require('node:fs');
 const Fastify = require('fastify');
 const fastifyStatic = require('@fastify/static');
-const fastifyCors = require('@fastify/cors');
 const { TelemetryCollector } = require('./collector.js');
 const {
+  HISTORY_RANGES,
   getHistory,
   getBenchmarkSession,
   listBenchmarkSessions,
@@ -23,9 +23,49 @@ const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 const app = Fastify({ logger: false });
 
-// Register CORS
-app.register(fastifyCors, {
-  origin: true
+// --- Request guards ---
+// The dashboard is same-origin only (no CORS). These guards stop other
+// websites open in the browser from talking to the local API:
+//  - Host check: blocks DNS-rebinding when bound to loopback (default).
+//  - Origin check: blocks cross-site state-changing requests (CSRF).
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+const bindHost = (config.server && config.server.host) || '127.0.0.1';
+const enforceLoopbackHost = LOOPBACK_HOSTS.has(bindHost);
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function hostnameOf(hostHeader) {
+  try {
+    return new URL(`http://${hostHeader}`).hostname;
+  } catch {
+    return null;
+  }
+}
+
+app.addHook('onRequest', async (request, reply) => {
+  const host = request.headers.host || '';
+  if (enforceLoopbackHost && !LOOPBACK_HOSTS.has(hostnameOf(host))) {
+    reply.code(403).send({ error: 'Forbidden host' });
+    return reply;
+  }
+
+  if (!SAFE_METHODS.has(request.method)) {
+    const origin = request.headers.origin;
+    const fetchSite = request.headers['sec-fetch-site'];
+    let sameOrigin = true;
+    if (origin) {
+      try {
+        sameOrigin = new URL(origin).host === host;
+      } catch {
+        sameOrigin = false;
+      }
+    } else if (fetchSite) {
+      sameOrigin = fetchSite === 'same-origin' || fetchSite === 'none';
+    }
+    if (!sameOrigin) {
+      reply.code(403).send({ error: 'Cross-origin requests are not allowed' });
+      return reply;
+    }
+  }
 });
 
 // Register Static file serving from public/
@@ -46,16 +86,24 @@ app.get('/api/current', async (request, reply) => {
     thresholds: config.thresholds,
     hardwareMeta: config.hardwareMeta,
     isLive: collector.isLive,
+    lhmError: collector.lastError || null,
     activeSession: collector.getActiveSessionState()
   };
 });
 
-// Historical Time-Series
+// Historical Time-Series (downsampled)
 app.get('/api/history', async (request, reply) => {
   const range = request.query.range || '1h';
-  const data = getHistory(range);
+  if (!HISTORY_RANGES[range]) {
+    reply.status(400);
+    return { error: `Invalid range '${range}'. Use one of: ${Object.keys(HISTORY_RANGES).join(', ')}` };
+  }
+  const { windowSeconds, bucketSeconds, data } = getHistory(range);
   return {
     range,
+    windowSeconds,
+    bucketSeconds,
+    serverTime: Date.now(),
     count: data.length,
     data
   };
@@ -151,7 +199,6 @@ app.get('/api/stream', (request, reply) => {
   reply.raw.setHeader('Content-Type', 'text/event-stream');
   reply.raw.setHeader('Cache-Control', 'no-cache');
   reply.raw.setHeader('Connection', 'keep-alive');
-  reply.raw.setHeader('Access-Control-Allow-Origin', '*');
 
   // Send initial state
   const initialData = JSON.stringify({
@@ -159,6 +206,7 @@ app.get('/api/stream', (request, reply) => {
     thresholds: config.thresholds,
     hardwareMeta: config.hardwareMeta,
     isLive: collector.isLive,
+    lhmError: collector.lastError || null,
     activeSession: collector.getActiveSessionState()
   });
   reply.raw.write(`data: ${initialData}\n\n`);
@@ -169,6 +217,7 @@ app.get('/api/stream', (request, reply) => {
       const payload = JSON.stringify({
         telemetry: data.telemetry,
         activeSession: data.activeSession,
+        lhmError: data.lhmError,
         thresholds: config.thresholds,
         hardwareMeta: config.hardwareMeta,
         isLive: collector.isLive

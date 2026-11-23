@@ -16,8 +16,9 @@ By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
    npm test
    ```
 
-4. (Optional) Download LibreHardwareMonitor as described in the [README](README.md#2-download-librehardwaremonitor).
-   Without it, the dashboard runs on simulated telemetry, which is enough for most UI work.
+4. Download LibreHardwareMonitor as described in the [README](README.md#2-download-librehardwaremonitor).
+   The dashboard only shows real sensor data; without LHM it stays in the `LHM OFFLINE` state.
+   Unit tests use `tests/mock-data.json` and do not need LHM.
 
 > **Never commit LibreHardwareMonitor binaries** (`*.exe`, `*.dll`, `*.zip`, …).
 > They are ignored by `.gitignore`; keep it that way.

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-23
+
+### ⚠️ Breaking changes
+- The dashboard now requires a running LibreHardwareMonitor instance to show data (simulated telemetry was removed).
+- The API no longer sends CORS headers and rejects cross-origin `POST`/`DELETE` requests and non-loopback `Host` headers when bound to loopback.
+
+### Security
+- Upgrade `@fastify/static` 8 → 10 (path traversal and route guard bypass advisories), `fastify` 5.12.8 and transitive `fast-uri`; `npm audit` reports 0 vulnerabilities.
+- Remove `@fastify/cors` and the wildcard `Access-Control-Allow-Origin` on the SSE stream: any website could read local telemetry or start/stop/delete studies. The API is now same-origin only.
+- Reject requests with a non-loopback `Host` header when bound to loopback (DNS rebinding protection).
+- Reject cross-origin state-changing requests (`POST`/`DELETE`) based on `Origin` / `Sec-Fetch-Site` (CSRF protection).
+
+### Removed
+- Simulated telemetry fallback. When LibreHardwareMonitor is unreachable the dashboard shows an `LHM OFFLINE` state, clears all readings and stores nothing; previously stored simulated rows are purged on startup.
+
+### Changed
+- Starting a thermal study is rejected while LibreHardwareMonitor is offline.
+- Charts use a real time axis fixed to the selected window, with visible gaps where no data exists.
+
+### Fixed
+- History ranges (15M/1H/6H/24H) returned every record of the current UTC day due to a timestamp format mismatch; each range now returns exactly its window, downsampled to 5s/15s/1m/5m buckets.
+- 24h retention cleanup kept data since midnight of the previous day for the same reason.
+- Live samples were mixed with aggregated history and capped at 120 points, distorting longer ranges.
+- Switching ranges quickly could render a stale response.
+
 ## [1.4.0] - 2026-11-23
 
 ### Added
@@ -48,7 +73,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release: real-time CPU/GPU/fan telemetry dashboard backed by LibreHardwareMonitor, Fastify and SQLite.
 
-[Unreleased]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.4.0...develop
+[Unreleased]: https://github.com/diazrincon/pc-temps-monitor/compare/v2.0.0...develop
+[2.0.0]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/diazrincon/pc-temps-monitor/compare/v1.1.0...v1.2.0
