@@ -8,22 +8,28 @@ data/
 *.db-shm
 *.db-journal
 *.log
+npm-debug.log*
 
-# Large binaries and portable monitor
+# LibreHardwareMonitor (third-party binaries, download separately — see README)
 LibreHardwareMonitor*/
 *.zip
+*.7z
 *.tar.gz
 *.exe
 *.dll
 *.pdb
+
+# Test coverage
+coverage/
 
 # OS & Environment
 .DS_Store
 Thumbs.db
 [Dd]esktop.ini
 .env
-.env.local
+.env.*
 
 # IDE & Editor metadata
 .vscode/
 .idea/
+*.code-workspace
