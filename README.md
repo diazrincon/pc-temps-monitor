@@ -2,7 +2,7 @@
 
 > Modern, lightweight, automated PC temperature and fan telemetry monitoring dashboard for Windows, integrating with LibreHardwareMonitor.
 
-![AeroPulse Pro](https://img.shields.io/badge/version-v1.4.0-blue.svg)
+![AeroPulse Pro](https://img.shields.io/badge/version-v2.0.0-blue.svg)
 ![Node.js](https://img.shields.io/badge/node.js-v24+-68a063.svg)
 ![Backend](https://img.shields.io/badge/Fastify-v5-black.svg)
 ![Database](https://img.shields.io/badge/SQLite-WAL-003b57.svg)

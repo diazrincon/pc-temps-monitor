@@ -6,8 +6,8 @@ Only the latest release on `main` receives security fixes.
 
 | Version | Supported |
 | ------- | --------- |
-| 1.4.x   | ✅        |
-| < 1.4   | ❌        |
+| 2.0.x   | ✅        |
+| < 2.0   | ❌        |
 
 ## Reporting a vulnerability
 
