@@ -1,0 +1,14 @@
+# <gitmoji> <type>(<scope>): <subject>
+#
+# Examples:
+#   ✨ feat(study): add CSV export for thermal sessions
+#   🐛 fix(parser): handle missing GPU hotspot sensor
+#   📝 docs(readme): add LibreHardwareMonitor download steps
+#
+# Common gitmojis: ✨ feat · 🐛 fix · 📝 docs · ♻️ refactor · ⚡️ perf
+#   ✅ test · 🎨 style · 🔧 config · 👷 ci · ⬆️ deps · 🔖 release
+#   🚑️ hotfix · 🔥 remove · 🙈 gitignore · 📄 license · 🔀 merge
+# Full list: https://gitmoji.dev
+#
+# Body: explain WHAT and WHY (wrap at 72 chars).
+# Footer: "Closes #123", "BREAKING CHANGE: ..."
