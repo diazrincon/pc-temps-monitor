@@ -10,6 +10,7 @@ const fastifyStatic = require('@fastify/static');
 const fastifyCors = require('@fastify/cors');
 const { TelemetryCollector } = require('./collector.js');
 const {
+  HISTORY_RANGES,
   getHistory,
   getBenchmarkSession,
   listBenchmarkSessions,
@@ -50,12 +51,19 @@ app.get('/api/current', async (request, reply) => {
   };
 });
 
-// Historical Time-Series
+// Historical Time-Series (downsampled)
 app.get('/api/history', async (request, reply) => {
   const range = request.query.range || '1h';
-  const data = getHistory(range);
+  if (!HISTORY_RANGES[range]) {
+    reply.status(400);
+    return { error: `Invalid range '${range}'. Use one of: ${Object.keys(HISTORY_RANGES).join(', ')}` };
+  }
+  const { windowSeconds, bucketSeconds, data } = getHistory(range);
   return {
     range,
+    windowSeconds,
+    bucketSeconds,
+    serverTime: Date.now(),
     count: data.length,
     data
   };
