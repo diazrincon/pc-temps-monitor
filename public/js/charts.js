@@ -1,9 +1,46 @@
 /**
- * Interactive Chart.js setup for Telemetry Timelines
+ * Interactive Chart.js setup for Telemetry Timelines.
+ *
+ * The x axis is a real time axis (epoch ms on a linear scale) whose window is
+ * always [now - range, now]. History arrives pre-aggregated in buckets from the
+ * server; live samples are folded into the same bucket size client-side, so
+ * every range keeps a consistent resolution. Gaps (LHM offline, PC off) are
+ * rendered as breaks in the line instead of being compressed away.
  */
 
 let chartTemps = null;
 let chartFans = null;
+
+// Current view state, set by setChartHistory()
+const chartView = {
+  windowMs: 60 * 60 * 1000,
+  bucketMs: 15 * 1000,
+  tickStepMs: 10 * 60 * 1000
+};
+
+// Tick spacing per window length
+const TICK_STEPS = {
+  [15 * 60]: 2 * 60 * 1000,
+  [60 * 60]: 10 * 60 * 1000,
+  [6 * 60 * 60]: 60 * 60 * 1000,
+  [24 * 60 * 60]: 3 * 60 * 60 * 1000
+};
+
+// A gap longer than this many buckets breaks the line
+const GAP_FACTOR = 3;
+
+// Field extractors: history row -> value, live telemetry -> value
+const TEMP_SERIES = [
+  { row: r => r.cpu_temp, live: t => t.cpu.packageTemp },
+  { row: r => r.gpu_core_temp, live: t => t.gpu.coreTemp },
+  { row: r => r.gpu_hotspot_temp, live: t => t.gpu.hotspotTemp }
+];
+const FAN_SERIES = [
+  { row: r => r.cpu_fan_rpm, live: t => t.fans.cpuFanRpm },
+  { row: r => r.gpu_fan1_rpm, live: t => t.gpu.fan1Rpm },
+  { row: r => r.case_intake_rpm, live: t => t.fans.caseIntakeRpm },
+  { row: r => r.case_exhaust_rpm, live: t => t.fans.caseExhaustRpm }
+];
 
 function createGradient(ctx, colorStart, colorEnd) {
   const gradient = ctx.createLinearGradient(0, 0, 0, 260);
@@ -12,13 +49,17 @@ function createGradient(ctx, colorStart, colorEnd) {
   return gradient;
 }
 
-function formatTimeLabel(isoString) {
-  try {
-    const d = new Date(isoString);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  } catch (e) {
-    return isoString;
-  }
+function formatTick(ms) {
+  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatTooltipTitle(items) {
+  if (!items.length) return '';
+  const d = new Date(items[0].parsed.x);
+  const opts = chartView.bucketMs >= 60 * 1000
+    ? { hour: '2-digit', minute: '2-digit' }
+    : { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  return d.toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString([], opts);
 }
 
 function initCharts() {
@@ -30,10 +71,28 @@ function initCharts() {
   const cTemps = ctxTemps.getContext('2d');
   const cFans = ctxFans.getContext('2d');
 
+  const xScale = () => ({
+    type: 'linear',
+    bounds: 'ticks',
+    grid: { color: 'rgba(255, 255, 255, 0.04)', drawBorder: false },
+    ticks: {
+      color: '#64748b',
+      font: { family: 'JetBrains Mono', size: 10 },
+      maxRotation: 0,
+      autoSkip: true,
+      maxTicksLimit: 8,
+      stepSize: chartView.tickStepMs,
+      callback: (v) => formatTick(v)
+    }
+  });
+
   const commonOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 300 },
+    animation: false,
+    parsing: false,
+    normalized: true,
+    spanGaps: false,
     interaction: {
       mode: 'index',
       intersect: false
@@ -50,41 +109,26 @@ function initCharts() {
         boxPadding: 6,
         usePointStyle: true,
         titleFont: { family: 'Outfit', size: 12, weight: '600' },
-        bodyFont: { family: 'JetBrains Mono', size: 11 }
-      }
-    },
-    scales: {
-      x: {
-        grid: {
-          color: 'rgba(255, 255, 255, 0.04)',
-          drawBorder: false
-        },
-        ticks: {
-          color: '#64748b',
-          font: { family: 'JetBrains Mono', size: 10 },
-          maxRotation: 0,
-          autoSkip: true,
-          maxTicksLimit: 8
-        }
-      },
-      y: {
-        grid: {
-          color: 'rgba(255, 255, 255, 0.04)',
-          drawBorder: false
-        },
-        ticks: {
-          color: '#64748b',
-          font: { family: 'JetBrains Mono', size: 10 }
-        }
+        bodyFont: { family: 'JetBrains Mono', size: 11 },
+        callbacks: { title: formatTooltipTitle }
       }
     }
   };
+
+  const yScale = (extra) => ({
+    grid: { color: 'rgba(255, 255, 255, 0.04)', drawBorder: false },
+    ...extra,
+    ticks: {
+      color: '#64748b',
+      font: { family: 'JetBrains Mono', size: 10 },
+      ...extra.ticks
+    }
+  });
 
   // 1. Temperatures Chart
   chartTemps = new Chart(cTemps, {
     type: 'line',
     data: {
-      labels: [],
       datasets: [
         {
           label: 'CPU Package',
@@ -125,144 +169,151 @@ function initCharts() {
     options: {
       ...commonOptions,
       scales: {
-        ...commonOptions.scales,
-        y: {
-          ...commonOptions.scales.y,
-          min: 30,
-          suggestedMax: 90,
-          ticks: {
-            ...commonOptions.scales.y.ticks,
-            callback: (v) => `${v}°C`
-          }
-        }
+        x: xScale(),
+        y: yScale({ min: 30, suggestedMax: 90, ticks: { callback: (v) => `${v}°C` } })
       }
     }
   });
 
   // 2. Fans Speeds Chart
+  const fanDataset = (label, color) => ({
+    label,
+    data: [],
+    borderColor: color,
+    borderWidth: 1.8,
+    fill: false,
+    tension: 0.3,
+    pointRadius: 0,
+    pointHoverRadius: 4
+  });
+
   chartFans = new Chart(cFans, {
     type: 'line',
     data: {
-      labels: [],
       datasets: [
-        {
-          label: 'CPU Fan',
-          data: [],
-          borderColor: '#38bdf8',
-          borderWidth: 1.8,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 0,
-          pointHoverRadius: 4
-        },
-        {
-          label: 'GPU Fan',
-          data: [],
-          borderColor: '#a855f7',
-          borderWidth: 1.8,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 0,
-          pointHoverRadius: 4
-        },
-        {
-          label: 'Case Intake',
-          data: [],
-          borderColor: '#10b981',
-          borderWidth: 1.8,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 0,
-          pointHoverRadius: 4
-        },
-        {
-          label: 'Case Exhaust',
-          data: [],
-          borderColor: '#fbbf24',
-          borderWidth: 1.8,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 0,
-          pointHoverRadius: 4
-        }
+        fanDataset('CPU Fan', '#38bdf8'),
+        fanDataset('GPU Fan', '#a855f7'),
+        fanDataset('Case Intake', '#10b981'),
+        fanDataset('Case Exhaust', '#fbbf24')
       ]
     },
     options: {
       ...commonOptions,
       scales: {
-        ...commonOptions.scales,
-        y: {
-          ...commonOptions.scales.y,
-          min: 0,
-          suggestedMax: 2000,
-          ticks: {
-            ...commonOptions.scales.y.ticks,
-            callback: (v) => `${v} RPM`
-          }
-        }
+        x: xScale(),
+        y: yScale({ min: 0, suggestedMax: 2000, ticks: { callback: (v) => `${v} RPM` } })
       }
     }
   });
+
+  // Keep the window sliding even when no samples arrive (e.g. LHM offline)
+  setInterval(() => refreshChartWindow(), 5000);
 }
 
-function updateChartsWithHistory(historyRecords) {
+/**
+ * Per-chart bookkeeping: for every point we keep how many samples were
+ * averaged into it (per dataset), so live samples can be folded in.
+ */
+function resetSeries(chart, series, rows, bucketMs) {
+  chart.$counts = [];
+  chart.data.datasets.forEach(ds => { ds.data = []; });
+
+  let prevTs = null;
+  for (const r of rows) {
+    if (prevTs !== null && r.ts - prevTs > bucketMs * GAP_FACTOR) {
+      pushGap(chart, prevTs + bucketMs);
+    }
+    chart.data.datasets.forEach((ds, i) => {
+      const v = series[i].row(r);
+      ds.data.push({ x: r.ts, y: v ?? null });
+    });
+    chart.$counts.push(series.map(s => (s.row(r) == null ? 0 : (r.n || 1))));
+    prevTs = r.ts;
+  }
+}
+
+function pushGap(chart, x) {
+  chart.data.datasets.forEach(ds => ds.data.push({ x, y: null }));
+  chart.$counts.push(chart.data.datasets.map(() => 0));
+}
+
+function foldSample(chart, series, telemetry, bucketMs) {
+  const ts = new Date(telemetry.timestamp).getTime();
+  if (!Number.isFinite(ts)) return;
+  const bucket = Math.floor(ts / bucketMs) * bucketMs;
+  const first = chart.data.datasets[0].data;
+  const last = first.length ? first[first.length - 1] : null;
+
+  if (last && last.x === bucket) {
+    // Same bucket: update running average
+    const counts = chart.$counts[chart.$counts.length - 1];
+    chart.data.datasets.forEach((ds, i) => {
+      const v = series[i].live(telemetry);
+      if (v == null) return;
+      const p = ds.data[ds.data.length - 1];
+      const n = counts[i];
+      p.y = n > 0 ? Math.round(((p.y * n + v) / (n + 1)) * 10) / 10 : v;
+      counts[i] = n + 1;
+    });
+    return;
+  }
+
+  if (last && bucket < last.x) return; // stale/out-of-order sample
+
+  if (last && bucket - last.x > bucketMs * GAP_FACTOR) {
+    pushGap(chart, last.x + bucketMs);
+  }
+
+  chart.data.datasets.forEach((ds, i) => {
+    const v = series[i].live(telemetry);
+    ds.data.push({ x: bucket, y: v ?? null });
+  });
+  chart.$counts.push(series.map(s => (s.live(telemetry) == null ? 0 : 1)));
+}
+
+function trimAndScale(chart, now) {
+  const min = now - chartView.windowMs;
+  const data0 = chart.data.datasets[0].data;
+  let drop = 0;
+  while (drop < data0.length && data0[drop].x < min) drop++;
+  if (drop > 0) {
+    chart.data.datasets.forEach(ds => ds.data.splice(0, drop));
+    chart.$counts.splice(0, drop);
+  }
+  const x = chart.options.scales.x;
+  x.min = min;
+  x.max = now;
+  x.ticks.stepSize = chartView.tickStepMs;
+  chart.update('none');
+}
+
+function refreshChartWindow() {
+  if (!chartTemps || !chartFans) return;
+  const now = Date.now();
+  trimAndScale(chartTemps, now);
+  trimAndScale(chartFans, now);
+}
+
+/**
+ * Replace chart contents with a server history payload
+ * ({ windowSeconds, bucketSeconds, data: [{ ts, n, ... }] }).
+ */
+function setChartHistory(history) {
   if (!chartTemps || !chartFans) return;
 
-  const labels = historyRecords.map(r => formatTimeLabel(r.timestamp));
-  const cpuTemps = historyRecords.map(r => r.cpu_temp);
-  const gpuCoreTemps = historyRecords.map(r => r.gpu_core_temp);
-  const gpuHotspotTemps = historyRecords.map(r => r.gpu_hotspot_temp);
+  chartView.windowMs = history.windowSeconds * 1000;
+  chartView.bucketMs = history.bucketSeconds * 1000;
+  chartView.tickStepMs = TICK_STEPS[history.windowSeconds] || chartView.windowMs / 6;
 
-  const cpuFans = historyRecords.map(r => r.cpu_fan_rpm);
-  const gpuFans = historyRecords.map(r => r.gpu_fan1_rpm);
-  const intakeFans = historyRecords.map(r => r.case_intake_rpm);
-  const exhaustFans = historyRecords.map(r => r.case_exhaust_rpm);
-
-  chartTemps.data.labels = labels;
-  chartTemps.data.datasets[0].data = cpuTemps;
-  chartTemps.data.datasets[1].data = gpuCoreTemps;
-  chartTemps.data.datasets[2].data = gpuHotspotTemps;
-  chartTemps.update('none');
-
-  chartFans.data.labels = labels;
-  chartFans.data.datasets[0].data = cpuFans;
-  chartFans.data.datasets[1].data = gpuFans;
-  chartFans.data.datasets[2].data = intakeFans;
-  chartFans.data.datasets[3].data = exhaustFans;
-  chartFans.update('none');
+  const rows = history.data || [];
+  resetSeries(chartTemps, TEMP_SERIES, rows, chartView.bucketMs);
+  resetSeries(chartFans, FAN_SERIES, rows, chartView.bucketMs);
+  refreshChartWindow();
 }
 
 function appendLivePoint(telemetry) {
-  if (!chartTemps || !chartFans) return;
-
-  const timeLabel = formatTimeLabel(telemetry.timestamp);
-
-  // Keep a maximum of 120 points on live scroll
-  const maxPoints = 120;
-
-  function pushAndShift(chart, label, datasetValues) {
-    chart.data.labels.push(label);
-    datasetValues.forEach((val, i) => {
-      chart.data.datasets[i].data.push(val);
-    });
-
-    if (chart.data.labels.length > maxPoints) {
-      chart.data.labels.shift();
-      chart.data.datasets.forEach(ds => ds.data.shift());
-    }
-    chart.update('none');
-  }
-
-  pushAndShift(chartTemps, timeLabel, [
-    telemetry.cpu.packageTemp,
-    telemetry.gpu.coreTemp,
-    telemetry.gpu.hotspotTemp
-  ]);
-
-  pushAndShift(chartFans, timeLabel, [
-    telemetry.fans.cpuFanRpm,
-    telemetry.gpu.fan1Rpm,
-    telemetry.fans.caseIntakeRpm,
-    telemetry.fans.caseExhaustRpm
-  ]);
+  if (!chartTemps || !chartFans || !telemetry) return;
+  foldSample(chartTemps, TEMP_SERIES, telemetry, chartView.bucketMs);
+  foldSample(chartFans, FAN_SERIES, telemetry, chartView.bucketMs);
+  refreshChartWindow();
 }

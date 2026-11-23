@@ -246,14 +246,17 @@ function updateTelemetryUI(data) {
   appendLivePoint(t);
 }
 
-// Fetch historical records for charts
+// Fetch historical records for charts.
+// A request token discards stale responses when the range changes quickly.
+let historyRequestId = 0;
 async function loadHistory(range) {
+  const requestId = ++historyRequestId;
   try {
-    const res = await fetch(`/api/history?range=${range}`);
-    if (res.ok) {
-      const data = await res.json();
-      updateChartsWithHistory(data.data || []);
-    }
+    const res = await fetch(`/api/history?range=${encodeURIComponent(range)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (requestId !== historyRequestId) return; // a newer range was requested
+    setChartHistory(data);
   } catch (err) {
     console.error('Error loading history:', err);
   }
@@ -264,9 +267,11 @@ function setupRangeButtons() {
   const buttons = document.querySelectorAll('.range-btn');
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
+      const range = btn.getAttribute('data-range');
+      if (range === currentRange) return;
       buttons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      currentRange = btn.getAttribute('data-range');
+      currentRange = range;
       loadHistory(currentRange);
     });
   });
@@ -278,7 +283,13 @@ function setupEventStream() {
     eventSource.close();
   }
 
+  const isReconnect = eventSource !== null;
   eventSource = new EventSource('/api/stream');
+
+  // After a reconnect, reload history to fill the gap left by the outage
+  if (isReconnect) {
+    eventSource.onopen = () => loadHistory(currentRange);
+  }
 
   eventSource.onmessage = (event) => {
     try {

@@ -118,98 +118,59 @@ function getLatestMetric() {
 }
 
 /**
- * Fetch time-series historical data with downsampling based on range
- * @param {'15m' | '1h' | '6h' | '24h'} range 
+ * Supported history ranges: window length and bucket size (downsampling).
+ * Bucket sizes keep every range at <= ~300 points.
+ */
+const HISTORY_RANGES = {
+  '15m': { windowSeconds: 15 * 60, bucketSeconds: 5 },
+  '1h': { windowSeconds: 60 * 60, bucketSeconds: 15 },
+  '6h': { windowSeconds: 6 * 60 * 60, bucketSeconds: 60 },
+  '24h': { windowSeconds: 24 * 60 * 60, bucketSeconds: 300 }
+};
+
+// Timestamps are stored as ISO-8601 strings (`2026-01-01T12:00:00.000Z`).
+// Cutoffs MUST use the same format so lexicographic comparison is correct
+// (SQLite's `datetime()` returns `2026-01-01 12:00:00`, and 'T' > ' ').
+const ISO_NOW_OFFSET = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)";
+
+const historyStmt = db.prepare(`
+  SELECT
+    (CAST(strftime('%s', timestamp) AS INTEGER) / CAST(:bucket AS INTEGER)) * CAST(:bucket AS INTEGER) * 1000 AS ts,
+    count(*) AS n,
+    round(avg(cpu_temp), 1) AS cpu_temp,
+    round(avg(cpu_load), 1) AS cpu_load,
+    round(avg(gpu_core_temp), 1) AS gpu_core_temp,
+    round(avg(gpu_hotspot_temp), 1) AS gpu_hotspot_temp,
+    round(avg(gpu_fan1_rpm)) AS gpu_fan1_rpm,
+    round(avg(cpu_fan_rpm)) AS cpu_fan_rpm,
+    round(avg(case_intake_rpm)) AS case_intake_rpm,
+    round(avg(case_exhaust_rpm)) AS case_exhaust_rpm
+  FROM metrics
+  WHERE timestamp >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', :offset)
+  GROUP BY ts
+  ORDER BY ts ASC
+`);
+
+/**
+ * Fetch downsampled time-series history for a range.
+ * Each row has `ts` (bucket start, epoch ms) and `n` (samples in bucket).
+ * @param {'15m' | '1h' | '6h' | '24h'} range
  */
 function getHistory(range = '1h') {
-  let timeModifier = '-1 hour';
-
-  switch (range) {
-    case '15m':
-      timeModifier = '-15 minutes';
-      return db.prepare(`
-        SELECT timestamp, is_mock, cpu_temp, cpu_load, gpu_core_temp, gpu_hotspot_temp,
-               gpu_fan1_rpm, cpu_fan_rpm, case_intake_rpm, case_exhaust_rpm
-        FROM metrics
-        WHERE timestamp >= datetime('now', '${timeModifier}')
-        ORDER BY id ASC
-      `).all();
-
-    case '1h':
-      timeModifier = '-1 hour';
-      return db.prepare(`
-        SELECT 
-          strftime('%Y-%m-%dT%H:%M:', timestamp) || 
-          substr('00' || (cast(strftime('%S', timestamp) as integer) / 15 * 15), -2, 2) || 'Z' as timestamp,
-          max(is_mock) as is_mock,
-          round(avg(cpu_temp), 1) as cpu_temp,
-          round(avg(cpu_load), 1) as cpu_load,
-          round(avg(gpu_core_temp), 1) as gpu_core_temp,
-          round(avg(gpu_hotspot_temp), 1) as gpu_hotspot_temp,
-          round(avg(gpu_fan1_rpm)) as gpu_fan1_rpm,
-          round(avg(cpu_fan_rpm)) as cpu_fan_rpm,
-          round(avg(case_intake_rpm)) as case_intake_rpm,
-          round(avg(case_exhaust_rpm)) as case_exhaust_rpm
-        FROM metrics
-        WHERE timestamp >= datetime('now', '${timeModifier}')
-        GROUP BY 1
-        ORDER BY 1 ASC
-      `).all();
-
-    case '6h':
-      timeModifier = '-6 hours';
-      return db.prepare(`
-        SELECT 
-          strftime('%Y-%m-%dT%H:%M:00Z', timestamp) as timestamp,
-          max(is_mock) as is_mock,
-          round(avg(cpu_temp), 1) as cpu_temp,
-          round(avg(cpu_load), 1) as cpu_load,
-          round(avg(gpu_core_temp), 1) as gpu_core_temp,
-          round(avg(gpu_hotspot_temp), 1) as gpu_hotspot_temp,
-          round(avg(gpu_fan1_rpm)) as gpu_fan1_rpm,
-          round(avg(cpu_fan_rpm)) as cpu_fan_rpm,
-          round(avg(case_intake_rpm)) as case_intake_rpm,
-          round(avg(case_exhaust_rpm)) as case_exhaust_rpm
-        FROM metrics
-        WHERE timestamp >= datetime('now', '${timeModifier}')
-        GROUP BY 1
-        ORDER BY 1 ASC
-      `).all();
-
-    case '24h':
-      timeModifier = '-24 hours';
-      return db.prepare(`
-        SELECT 
-          strftime('%Y-%m-%dT%H:', timestamp) || 
-          substr('00' || (cast(strftime('%M', timestamp) as integer) / 5 * 5), -2, 2) || ':00Z' as timestamp,
-          max(is_mock) as is_mock,
-          round(avg(cpu_temp), 1) as cpu_temp,
-          round(avg(cpu_load), 1) as cpu_load,
-          round(avg(gpu_core_temp), 1) as gpu_core_temp,
-          round(avg(gpu_hotspot_temp), 1) as gpu_hotspot_temp,
-          round(avg(gpu_fan1_rpm)) as gpu_fan1_rpm,
-          round(avg(cpu_fan_rpm)) as cpu_fan_rpm,
-          round(avg(case_intake_rpm)) as case_intake_rpm,
-          round(avg(case_exhaust_rpm)) as case_exhaust_rpm
-        FROM metrics
-        WHERE timestamp >= datetime('now', '${timeModifier}')
-        GROUP BY 1
-        ORDER BY 1 ASC
-      `).all();
-
-    default:
-      return getHistory('1h');
-  }
+  const cfg = HISTORY_RANGES[range] || HISTORY_RANGES['1h'];
+  const data = historyStmt.all({
+    bucket: cfg.bucketSeconds,
+    offset: `-${cfg.windowSeconds} seconds`
+  });
+  return { ...cfg, data };
 }
 
 /**
  * Remove records older than retentionHours
  */
 function cleanupOldRecords(retentionHours = 24) {
-  const result = db.prepare(`
-    DELETE FROM metrics WHERE timestamp < datetime('now', '-' || ? || ' hours')
-  `).run(retentionHours);
-  return result;
+  return db.prepare(`DELETE FROM metrics WHERE timestamp < ${ISO_NOW_OFFSET}`)
+    .run(`-${Number(retentionHours)} hours`);
 }
 
 // --- BENCHMARK SESSIONS & SAMPLES ---
@@ -320,6 +281,7 @@ module.exports = {
   db,
   insertMetric,
   getLatestMetric,
+  HISTORY_RANGES,
   getHistory,
   cleanupOldRecords,
   createBenchmarkSession,
